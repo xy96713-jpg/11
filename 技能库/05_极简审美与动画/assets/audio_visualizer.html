@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎵 音画同步可视化器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        h1 {
+            margin: 20px 0 10px;
+            font-size: 1.8rem;
+            background: linear-gradient(90deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: gradientShift 3s ease infinite;
+        }
+
+        @keyframes gradientShift {
+            0%, 100% { filter: hue-rotate(0deg); }
+            50% { filter: hue-rotate(30deg); }
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin: 15px 0;
+            padding: 15px 25px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 50px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .controls input[type="file"] {
+            display: none;
+        }
+
+        .controls label, .controls button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .controls label {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .controls label:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .controls button {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .controls button:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        .controls button.active {
+            background: linear-gradient(135deg, #11998e, #38ef7d);
+            border: none;
+        }
+
+        #visualizer {
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .info {
+            margin-top: 15px;
+            font-size: 0.85rem;
+            opacity: 0.7;
+        }
+
+        .mode-selector {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .mode-btn {
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            color: white;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.3s ease;
+        }
+
+        .mode-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .mode-btn.active {
+            background: linear-gradient(135deg, #f093fb, #f5576c);
+            border: none;
+        }
+
+        #audioPlayer {
+            margin-top: 15px;
+            width: 80%;
+            max-width: 500px;
+        }
+
+        audio {
+            width: 100%;
+            border-radius: 30px;
+            outline: none;
+        }
+
+        audio::-webkit-media-controls-panel {
+            background: rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <h1>🎵 音画同步可视化器</h1>
+    
+    <div class="controls">
+        <input type="file" id="audioFile" accept="audio/*">
+        <label for="audioFile">📁 选择音频</label>
+        <button id="micBtn">🎤 麦克风</button>
+    </div>
+
+    <canvas id="visualizer" width="900" height="400"></canvas>
+
+    <div class="mode-selector">
+        <button class="mode-btn active" data-mode="bars">📊 频谱柱</button>
+        <button class="mode-btn" data-mode="wave">〰️ 波形</button>
+        <button class="mode-btn" data-mode="circle">🔵 圆环</button>
+        <button class="mode-btn" data-mode="particles">✨ 粒子</button>
+    </div>
+
+    <div id="audioPlayer"></div>
+
+    <p class="info">上传音频文件或使用麦克风，观看画面跟随节拍舞动 🎶</p>
+
+    <script>
+        // ============ 初始化 ============
+        const canvas = document.getElementById('visualizer');
+        const ctx = canvas.getContext('2d');
+        const audioFileInput = document.getElementById('audioFile');
+        const micBtn = document.getElementById('micBtn');
+        const audioPlayerContainer = document.getElementById('audioPlayer');
+        const modeBtns = document.querySelectorAll('.mode-btn');
+
+        let audioContext, analyser, dataArray, bufferLength;
+        let currentMode = 'bars';
+        let particles = [];
+        let hueRotation = 0;
+        let audioElement = null;
+        let sourceNode = null;
+        let isMicActive = false;
+
+        // ============ 模式切换 ============
+        modeBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                modeBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentMode = btn.dataset.mode;
+                if (currentMode === 'particles') initParticles();
+            });
+        });
+
+        // ============ 音频文件处理 ============
+        audioFileInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // 停止麦克风
+            if (isMicActive) stopMic();
+
+            // 创建音频元素
+            if (audioElement) {
+                audioElement.pause();
+                audioElement.remove();
+            }
+
+            audioElement = document.createElement('audio');
+            audioElement.controls = true;
+            audioElement.src = URL.createObjectURL(file);
+            audioPlayerContainer.innerHTML = '';
+            audioPlayerContainer.appendChild(audioElement);
+
+            // 设置 Audio Context
+            await setupAudioContext();
+
+            // 连接音频源
+            if (sourceNode) sourceNode.disconnect();
+            sourceNode = audioContext.createMediaElementSource(audioElement);
+            sourceNode.connect(analyser);
+            analyser.connect(audioContext.destination);
+
+            audioElement.play();
+            visualize();
+        });
+
+        // ============ 麦克风处理 ============
+        micBtn.addEventListener('click', async () => {
+            if (isMicActive) {
+                stopMic();
+                return;
+            }
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                // 停止文件播放
+                if (audioElement) {
+                    audioElement.pause();
+                }
+
+                await setupAudioContext();
+
+                if (sourceNode) sourceNode.disconnect();
+                sourceNode = audioContext.createMediaStreamSource(stream);
+                sourceNode.connect(analyser);
+                // 不连接到 destination，避免回声
+
+                isMicActive = true;
+                micBtn.classList.add('active');
+                micBtn.textContent = '🔴 停止';
+                
+                visualize();
+            } catch (err) {
+                alert('无法访问麦克风: ' + err.message);
+            }
+        });
+
+        function stopMic() {
+            if (sourceNode) {
+                sourceNode.disconnect();
+                sourceNode = null;
+            }
+            isMicActive = false;
+            micBtn.classList.remove('active');
+            micBtn.textContent = '🎤 麦克风';
+        }
+
+        // ============ Audio Context 设置 ============
+        async function setupAudioContext() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                bufferLength = analyser.frequencyBinCount;
+                dataArray = new Uint8Array(bufferLength);
+            }
+
+            if (audioContext.state === 'suspended') {
+                await audioContext.resume();
+            }
+        }
+
+        // ============ 粒子系统 ============
+        function initParticles() {
+            particles = [];
+            for (let i = 0; i < 100; i++) {
+                particles.push({
+                    x: canvas.width / 2,
+                    y: canvas.height / 2,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: (Math.random() - 0.5) * 4,
+                    size: Math.random() * 3 + 1,
+                    life: Math.random() * 100 + 50,
+                    maxLife: 150,
+                    hue: Math.random() * 360
+                });
+            }
+        }
+
+        // ============ 可视化主循环 ============
+        function visualize() {
+            requestAnimationFrame(visualize);
+
+            if (!analyser) return;
+
+            analyser.getByteFrequencyData(dataArray);
+
+            // 计算平均能量
+            const average = dataArray.reduce((a, b) => a + b, 0) / bufferLength;
+            hueRotation = (hueRotation + average * 0.01) % 360;
+
+            // 清除画布 (带拖尾效果)
+            ctx.fillStyle = 'rgba(15, 12, 41, 0.2)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            switch (currentMode) {
+                case 'bars':
+                    drawBars();
+                    break;
+                case 'wave':
+                    drawWave();
+                    break;
+                case 'circle':
+                    drawCircle();
+                    break;
+                case 'particles':
+                    drawParticles(average);
+                    break;
+            }
+        }
+
+        // ============ 频谱柱状图 ============
+        function drawBars() {
+            const barWidth = (canvas.width / bufferLength) * 2.5;
+            let x = 0;
+
+            for (let i = 0; i < bufferLength; i++) {
+                const barHeight = dataArray[i] * 1.5;
+                
+                // 渐变色
+                const hue = (i / bufferLength) * 360 + hueRotation;
+                ctx.fillStyle = `hsl(${hue}, 80%, 60%)`;
+                
+                // 从底部向上绘制
+                ctx.fillRect(x, canvas.height - barHeight, barWidth - 2, barHeight);
+                
+                // 顶部高光
+                ctx.fillStyle = `hsl(${hue}, 100%, 80%)`;
+                ctx.fillRect(x, canvas.height - barHeight - 3, barWidth - 2, 3);
+                
+                x += barWidth;
+            }
+        }
+
+        // ============ 波形可视化 ============
+        function drawWave() {
+            analyser.getByteTimeDomainData(dataArray);
+            
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = `hsl(${hueRotation}, 80%, 60%)`;
+            ctx.beginPath();
+
+            const sliceWidth = canvas.width / bufferLength;
+            let x = 0;
+
+            for (let i = 0; i < bufferLength; i++) {
+                const v = dataArray[i] / 128.0;
+                const y = v * canvas.height / 2;
+
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+                x += sliceWidth;
+            }
+
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.stroke();
+
+            // 镜像波形
+            ctx.strokeStyle = `hsl(${hueRotation + 180}, 80%, 60%)`;
+            ctx.beginPath();
+            x = 0;
+
+            for (let i = 0; i < bufferLength; i++) {
+                const v = dataArray[i] / 128.0;
+                const y = canvas.height - (v * canvas.height / 2);
+
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+                x += sliceWidth;
+            }
+
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.stroke();
+        }
+
+        // ============ 圆环可视化 ============
+        function drawCircle() {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = 100;
+
+            for (let i = 0; i < bufferLength; i++) {
+                const angle = (i / bufferLength) * Math.PI * 2;
+                const barHeight = dataArray[i] * 0.8;
+                
+                const x1 = centerX + Math.cos(angle) * radius;
+                const y1 = centerY + Math.sin(angle) * radius;
+                const x2 = centerX + Math.cos(angle) * (radius + barHeight);
+                const y2 = centerY + Math.sin(angle) * (radius + barHeight);
+
+                const hue = (i / bufferLength) * 360 + hueRotation;
+                ctx.strokeStyle = `hsl(${hue}, 80%, 60%)`;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            }
+
+            // 中心圆
+            const avgEnergy = dataArray.reduce((a, b) => a + b, 0) / bufferLength;
+            const pulseRadius = radius * 0.8 + avgEnergy * 0.3;
+            
+            const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, pulseRadius);
+            gradient.addColorStop(0, `hsla(${hueRotation}, 80%, 60%, 0.8)`);
+            gradient.addColorStop(1, `hsla(${hueRotation + 60}, 80%, 40%, 0)`);
+            
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, pulseRadius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // ============ 粒子可视化 ============
+        function drawParticles(energy) {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+
+            particles.forEach((p, index) => {
+                // 更新粒子
+                p.x += p.vx * (1 + energy * 0.02);
+                p.y += p.vy * (1 + energy * 0.02);
+                p.life--;
+
+                // 重生粒子
+                if (p.life <= 0 || p.x < 0 || p.x > canvas.width || p.y < 0 || p.y > canvas.height) {
+                    p.x = centerX;
+                    p.y = centerY;
+                    p.vx = (Math.random() - 0.5) * 4;
+                    p.vy = (Math.random() - 0.5) * 4;
+                    p.life = p.maxLife;
+                    p.size = Math.random() * 3 + 1 + energy * 0.05;
+                }
+
+                // 绘制粒子
+                const alpha = p.life / p.maxLife;
+                ctx.fillStyle = `hsla(${p.hue + hueRotation}, 80%, 60%, ${alpha})`;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size * (1 + energy * 0.01), 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // 节拍爆发：能量高时生成额外粒子
+            if (energy > 150) {
+                for (let i = 0; i < 5; i++) {
+                    particles.push({
+                        x: centerX,
+                        y: centerY,
+                        vx: (Math.random() - 0.5) * 8,
+                        vy: (Math.random() - 0.5) * 8,
+                        size: Math.random() * 5 + 2,
+                        life: 50,
+                        maxLife: 50,
+                        hue: Math.random() * 360
+                    });
+                }
+                // 限制粒子总数
+                if (particles.length > 300) {
+                    particles.splice(0, 50);
+                }
+            }
+        }
+
+        // ============ 初始化粒子 ============
+        initParticles();
+    </script>
+</body>
+</html>

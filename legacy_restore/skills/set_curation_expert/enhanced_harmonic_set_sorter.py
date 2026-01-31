@@ -57,9 +57,12 @@ sys.path.insert(0, str(Path(__file__).parent / "rekordbox-mcp"))
 
 try:
     from rekordbox_mcp.database import RekordboxDatabase
+    from rekordbox_mcp.models import SearchOptions
 except ImportError as e:
     print(f"导入错误: {e}")
-    sys.exit(1)
+    # Fallback/Mock for standalone runs if needed
+    class RekordboxDatabase: pass
+    class SearchOptions: pass
 
 try:
     from pyrekordbox import Rekordbox6Database
@@ -7739,31 +7742,9 @@ def find_stems_mashup_pairs(playlist_name: str, min_score: float = 75.0, max_res
     
     # 加载歌曲
     db = Rekordbox6Database()
+    # 1. 加载歌曲
     tracks = []
     
-    # 搜索播放列表
-    query = text("SELECT ID, Name FROM djmdPlaylist WHERE Name LIKE :name LIMIT 10")
-    results = db.session.execute(query, {"name": f"%{playlist_name}%"}).fetchall()
-    
-    if not results:
-        print(f"错误: 未找到播放列表 '{playlist_name}'")
-        return []
-    
-    playlist_id, found_name = results[0]
-    print(f"   使用播放列表: {found_name}")
-    
-    # 获取播放列表歌曲
-    playlist = db.get_playlist(ID=playlist_id)
-    if not playlist:
-        print("错误: 无法加载播放列表")
-        return []
-    
-    songs = list(playlist.Songs) if hasattr(playlist, 'Songs') and playlist.Songs else []
-    if not songs:
-        songs = list(db.get_playlist_songs(PlaylistID=playlist_id))
-    
-    for song in songs:
-        if getattr(song, "rb_local_deleted", 0) == 1:
             continue
         
         content_id = getattr(song, 'ContentID', None)
@@ -7951,9 +7932,12 @@ if __name__ == "__main__":
             print("建议降低最低分数重试")
     else:
         # 原有的排Set功能
-        parser = argparse.ArgumentParser(description='增强版调性和谐Set排序工具')
-        parser.add_argument('playlist', nargs='?', default='流行Boiler Room',
-                           help='播放列表名称或ID（默认: 流行Boiler Room）')
+        parser.add_argument('playlist', nargs='?', default='default',
+                           help='播放列表名称 (或使用 artist:Name / search:Query 直接搜索)')
+        
+        # [V6.3] Explicit Search Arguments
+        parser.add_argument('--artist', type=str, help='[V6.3] 按照艺人搜索生成 Set')
+        parser.add_argument('--query', type=str, help='[V6.3] 按照关键词搜索生成 Set')
         # 【Phase 8】浮动分割：支持按时长浮动，不固定首数
         parser.add_argument('--songs-per-set', type=int, default=None,
                            help='每个Set的歌曲数量（可选，不指定则使用配置文件的浮动规则: 25-40首）')
@@ -7997,8 +7981,15 @@ if __name__ == "__main__":
                 # 提示用户大歌单建议自动开启智能切分逻辑
                 pass 
         
+        # [V6.3] Construct effective target name
+        target_name = args.playlist
+        if args.artist:
+            target_name = f"artist:{args.artist}"
+        elif args.query:
+            target_name = f"search:{args.query}"
+            
         asyncio.run(create_enhanced_harmonic_sets(
-            playlist_name=args.playlist,
+            playlist_name=target_name,
             songs_per_set=effective_songs_per_set,
             enable_bridge=args.bridge,
             is_boutique=args.boutique,
