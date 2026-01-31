@@ -1,0 +1,23 @@
+---
+description: 强制执行系统架构规则。处理 Mashup 推荐时必须使用系统已有模块，禁止创建临时脚本。
+globs: ["**/master_flow_generator.py", "**/enhanced_harmonic_set_sorter.py", "**/skills/skill_*.py"]
+alwaysApply: true
+---
+
+# 系统架构强制执行规则
+
+## 禁止行为
+❌ 禁止创建临时脚本分析曲库
+❌ 禁止直接调用 Skill 类而不理解上下文
+❌ 禁止使用简单 BPM/Key 筛选代替完整评分
+
+## 正确流程
+1. **总入口**: `d:\anti\master_flow_generator.py`
+2. **调度中心**: `d:\anti\enhanced_harmonic_set_sorter.py` (7000+行)
+3. **技能模块**: `d:\anti\skills\` 目录下的 `skill_*.py` 文件
+
+## Mashup 推荐必须
+1. 调用 `skill_mashup_intelligence.calculate_mashup_score()` 11维度评分
+2. 调用 `skill_aesthetic_curator.calculate_aesthetic_match()` 流派美学
+3. 调用 `skill_v3_features` 频谱/音色分析
+4. 输出必须引用具体文件路径和行号

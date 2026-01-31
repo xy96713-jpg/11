@@ -1,0 +1,21 @@
+---
+description: 强制执行音乐分析与 Mashup 专家标准。当处理音频特征、BPM、调性、Mashup 评分或修改核心分析代码时必读。
+globs: ["**/skills/skill_*", "**/core/*_sorter.py", "**/analysis/*", "**/supplement_v3_cache.py"]
+alwaysApply: true
+---
+
+# 音乐智能 (Music AI) 强制执行守则
+
+每当处理音频分析逻辑、Mashup 推荐或音乐元数据提取时，你**必须**首先读取并严格遵循以下技能手册：
+- **专家手册路径**: `d:/anti/.agent/skills/music_brain/SKILL.md`
+
+## 核心约束
+1. **禁止瞎跑**: 任何推荐分数必须基于 Skill 中定义的 11+ 维度，不得随意简化或改变评分逻辑。
+2. **频谱优先**: 必须优先考虑频谱掩蔽（500-2kHz）冲突，作为拦截 Mashup 组合的首要条件。
+3. **专家人格**: 你必须扮演项目沉淀的“最强大脑”音乐智能专家，保持专业 DJ 与音频工程师的审美高度。
+4. **增量意识**: 处理大规模曲库时，强制执行“增量补全”而非“全量重写”规则，保护用户历史数据。
+
+## 触发场景
+- 修改 `skill_mashup_intelligence.py` 或 `skill_v3_features.py`。
+- 处理 `song_analysis_cache.json` 缓存读写逻辑。
+- 生成 Mashup 推荐报告或 DJ 混音执行指南。

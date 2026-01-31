@@ -1,0 +1,35 @@
+# K-Pop Expert Blueprint (V6.0)
+# Optimized for XG, NewJeans, and modern rhythmic K-Pop
+name: "K-Pop Specialist"
+description: "Focuses on Jersey Club, Electro-Pop, and high-energy synced girl group tracks."
+
+rules:
+  genre_priorities:
+    - "Jersey Club"
+    - "Electro-Pop"
+    - "Dance-Pop"
+  energy_flow: "Wavy Peak"  # Multi-peak structure
+  vocal_interplay: true     # High priority on avoiding vocal overlaps
+  
+scoring_weights:
+  harmonic: 0.25
+  bpm_smoothness: 0.20
+  energy_progression: 0.20
+  timbre_matching: 0.15     # Enhanced weight for V6.0
+  semantic_relevance: 0.10  # Cues like "Drop"
+  phrase_alignment: 0.10
+
+transitions:
+  preferred_styles:
+    - "Bass Swap"
+    - "Cut on Beat"
+  bridge_tracks:
+    - "House"
+    - "Electronic"
+
+narrative_theme:
+  title: "Modern K-Pop Evolution"
+  chapters:
+    - "Nostalgic Resonance (Y2K Vibes)"
+    - "Rhythmic Industrialism"
+    - "Peak Girl Power"

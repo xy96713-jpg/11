@@ -1,0 +1,42 @@
+# Professional DJ Set Blueprints (V5.0)
+
+blueprints:
+  club_ استاندارد:
+    description: "Standard Club Narrative: Warmup -> Build -> Peak -> Outro"
+    chapters:
+      - name: "Intro & Groove"
+        energy_range: [20, 50]
+        vocal_policy: "Prefer Instrumental or Low Vocal"
+        duration_percent: 15
+        order: 1
+      - name: "The Build"
+        energy_range: [50, 75]
+        vocal_policy: "Mainstream/Familiar"
+        duration_percent: 25
+        order: 2
+      - name: "Energy Peak"
+        energy_range: [75, 100]
+        vocal_policy: "High Energy / Anthemic"
+        duration_percent: 45
+        order: 3
+      - name: "Cool Down / Afterglow"
+        energy_range: [30, 60]
+        vocal_policy: "Melodic / Deep"
+        duration_percent: 15
+        order: 4
+
+  festival_explosion:
+    description: "High Energy Festival Flow: Short Warmup, Long Peak"
+    chapters:
+      - name: "Opening Hammer"
+        energy_range: [70, 90]
+        duration_percent: 10
+        order: 1
+      - name: "Main Peak"
+        energy_range: [85, 100]
+        duration_percent: 80
+        order: 2
+      - name: "Closing"
+        energy_range: [50, 70]
+        duration_percent: 10
+        order: 3

@@ -1,0 +1,42 @@
+# DJ Rules Configuration
+# These rules control the mixing behavior and penalties
+
+# Phrase alignment
+phrase_bars: 16  # Number of bars in a phrase
+phrase_dist_beats_threshold: 1.2  # Threshold for phrase distance in beats
+phrase_penalty_cap: 0.55  # Maximum penalty for phrase misalignment
+
+# Mix window constraints
+min_mix_window_len_sec: 12.0  # Minimum mix window length in seconds
+min_window_margin_sec: 4.0  # Minimum margin for mix window in seconds
+min_overlap_capacity_sec: 6.0  # Minimum overlap capacity in seconds
+
+# Key compatibility
+key_compat_threshold: 70.0  # Threshold for key compatibility (0-100)
+key_penalty_cap: 0.8  # Maximum penalty for key incompatibility
+
+# Genre and energy
+genre_incompat_penalty: 0.6  # Penalty for genre incompatibility
+energy_jump_threshold: 10.0  # Threshold for energy jump detection
+energy_jump_scale: 20.0  # Scale factor for energy jump penalty
+energy_jump_penalty_cap: 0.8  # Maximum penalty for energy jump
+
+# Vocal and Chorus clash (ROI-B)
+# Added after 2026-01-19 modern remix set review
+vocal_overlap_weight: 20.0  # Weight for vocal-on-vocal overlap at mix point
+chorus_overlap_penalty: 15.0  # Penalty for chorus-on-chorus overlap
+enable_vocal_timeline_check: true  # Enable vocal timeline check
+enable_chorus_overlap_check: true  # Enable chorus overlap check
+vocal_clash_penalty_cap: 0.9  # Maximum penalty for vocal/chorus clash
+
+# Metadata & Analysis Engine (V9 Integration)
+# Note: V5 legacy params (octave_recovery, fallback_tempo) have been removed
+rekordbox_metadata_priority: true  # Force use of Rekordbox BPM/Key if available
+bpm_range_min: 65.0               # Minimum acceptable BPM for popular music
+bpm_range_max: 195.0              # Maximum acceptable BPM for popular music
+
+# Set Split Rules
+split:
+  target_duration_minutes: 45.0   # Default target set length
+  min_songs: 5                    # Minimum songs per set (Lowered for Mini-Sets)
+  max_songs: 60                   # Maximum songs per set
