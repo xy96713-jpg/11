@@ -48,6 +48,7 @@
 | 预览内容 | 访问方式 | 渲染状态 |
 | :--- | :--- | :--- |
 | **✨ ULTRA 首页画廊** | 本地运行 `index.html#/` | ✅ **Masterpiece** (100% 还原图二) |
+| **🐰 New Jeans 粒子 (Bunny)** | [⚡ 启动本地预览](file:///d:/anti/技能库/05_极简审美与动画/assets/new_jeans_particles.html) | ✅ **New!** 粒子重组特效 |
 | **🎵 音画同步可视化器** | [🚀 云端立即体验](https://htmlpreview.github.io/?https://github.com/xy96713-jpg/11/blob/main/%E6%8A%80%E8%83%BD%E5%BA%93/05_%E6%9E%81%E7%AE%80%E5%AE%A1%E7%BE%8E%E4%B8%8E%E5%8A%A8%E7%94%BB/assets/audio_visualizer.html) | ✅ 完美运行 |
 | **💫 粒子流动背景** | [🚀 云端立即体验](https://htmlpreview.github.io/?https://github.com/xy96713-jpg/11/blob/main/%E6%8A%80%E8%83%BD%E5%BA%93/05_%E6%9E%81%E7%AE%80%E5%AE%A1%E7%BE%8E%E4%B8%8E%E5%8A%A8%E7%94%BB/assets/floating_particles.html) | ✅ 完美运行 |
 
