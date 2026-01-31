@@ -9,7 +9,7 @@ set GALLERY_PATH="d:\网页动画\index.html"
 
 if exist %GALLERY_PATH% (
     echo [√] 找到本地画廊资源。
-    start "" "chrome.exe" --app="%~dp0gallery\launcher.html"#/"
+    start "" "chrome.exe" --app="%~dp0gallery\index.html"
     echo [√] 已在 Chrome 中打开：ULTRA Visuals 首页
 ) else (
     echo [×] 错误：未在 D:\网页动画 找到资源。
