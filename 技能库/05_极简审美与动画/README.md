@@ -39,14 +39,15 @@
 
 ## 🎨 视觉画廊 (Visual Gallery)
 
-**[🌐 进入实时动效画廊 (Recommended)](https://htmlpreview.github.io/?https://github.com/xy96713-jpg/11/blob/main/%E6%8A%80%E8%83%BD%E5%BA%93/05_%E6%9E%81%E7%AE%80%E5%AE%A1%E7%BE%8E%E4%B8%8E%E5%8A%A8%E7%94%BB/gallery/index.html)**
+> [!IMPORTANT]
+> **本地高清体验 (Recommend)**：由于此画廊是复杂的单页应用(SPA)，直接从 GitHub 打开可能无法完美加载。
+> **请在本地执行**：[⚡_启动本地画廊.bat](file:///d:/anti/技能库/05_极简审美与动画/⚡_启动本地画廊.bat) 即可在浏览器中瞬间还原“图二”中的 **ULTRA Visuals** 终极动效体验。
 
-| 动效场景 | 立即预览 (Preview) | 源代码仓库 (Source) |
+| 模式 | 访问路径 / 预览方式 | 状态 |
 | :--- | :--- | :--- |
-| **🎵 音画同步可视化器** | [🚀 立即体验](https://htmlpreview.github.io/?https://github.com/xy96713-jpg/11/blob/main/%E6%8A%80%E8%83%BD%E5%BA%93/05_%E6%9E%81%E7%AE%80%E5%AE%A1%E7%BE%8E%E4%B8%8E%E5%8A%A8%E7%94%BB/assets/audio_visualizer.html) | [📄 Source](https://github.com/xy96713-jpg/11/blob/main/%E6%8A%80%E8%83%BD%E5%BA%93/05_%E6%9E%81%E7%AE%80%E5%AE%A1%E7%BE%8E%E4%B8%8E%E5%8A%A8%E7%94%BB/assets/audio_visualizer.html) |
-| **💫 粒子流动背景** | [🚀 立即体验](https://htmlpreview.github.io/?https://github.com/xy96713-jpg/11/blob/main/%E6%8A%80%E8%83%BD%E5%BA%93/05_%E6%9E%81%E7%AE%80%E5%AE%A1%E7%BE%8E%E4%B8%8E%E5%8A%A8%E7%94%BB/assets/floating_particles.html) | [📄 Source](https://github.com/xy96713-jpg/11/blob/main/%E6%8A%80%E8%83%BD%E5%BA%93/05_%E6%9E%81%E7%AE%80%E5%AE%A1%E7%BE%8E%E4%B8%8E%E5%8A%A8%E7%94%BB/assets/floating_particles.html) |
-
-> **提示**：点击“立即体验”后，请耐心等待几秒加载外部资源（如粒子库）。
+| **🚀 本地 ULTRA 模式** | `D:\网页动画\index.html#/` (通过脚本一键启动) | ✅ 高清渲染、完整交互 |
+| **🌐 云端预览 (Lite)** | [点击在线预览](https://htmlpreview.github.io/?https://github.com/xy96713-jpg/11/blob/main/%E6%8A%80%E8%83%BD%E5%BA%93/05_%E6%9E%81%E7%AE%80%E5%AE%A1%E7%BE%8E%E4%B8%8E%E5%8A%A8%E7%94%BB/gallery/index.html) | ⚠️ 部分动效可能加载受限 |
+| **🎵 音画可视化器** | [立即体验](https://htmlpreview.github.io/?https://github.com/xy96713-jpg/11/blob/main/%E6%8A%80%E8%83%BD%E5%BA%93/05_%E6%9E%81%E7%AE%80%E5%AE%A1%E7%BE%8E%E4%B8%8E%E5%8A%A8%E7%94%BB/assets/audio_visualizer.html) | ✅ 完美运行 |
 
 ---
 
