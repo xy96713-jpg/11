@@ -1,0 +1,32 @@
+# Antigravity Git Ignore Rules
+
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Browser Profiles (Contains private data/cookies)
+browser_profile/
+gemini_nano_profile/
+temp_chrome_profile/
+notebooklm_playwright_profile/
+
+# Large Data & Caches
+skills/general_tools/data/
+*.json
+*.json.bak
+*.log
+*.xml
+node_modules/
+generated_sets/
+exporters/
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Sensitivity
+error_log.txt
+*.dump
+config/*.secret

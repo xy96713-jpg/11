@@ -1,0 +1,59 @@
+import yt_dlp
+import os
+import sys
+import json
+
+def download_douyin(target_url, output_dir):
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Heuristic: Convert search modal URL to direct video URL if possible
+    # https://www.douyin.com/search/...modal_id=7599247772407188772 -> https://www.douyin.com/video/7599247772407188772
+    if "modal_id=" in target_url:
+        import re
+        match = re.search(r'modal_id=(\d+)', target_url)
+        if match:
+            video_id = match.group(1)
+            target_url = f"https://www.douyin.com/video/{video_id}"
+            print(f"[*] Remapped to direct URL: {target_url}", file=sys.stderr)
+
+    ydl_opts = {
+        'format': 'bestvideo+bestaudio/best',
+        'outtmpl': os.path.join(output_dir, '%(title)s_%(id)s.%(ext)s'),
+        'merge_output_format': 'mp4',
+        'quiet': False,
+        'no_warnings': False,
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    }
+
+    # Search for cookies in known locations
+    cookie_paths = [
+        "D:\\anti\\skills\\douyin_intelligence\\scripts\\douyin_cookies.txt",
+        "D:\\anti\\skills\\music_download_expert\\scripts\\youtube_cookies.txt",
+        "D:\\anti\\skills\\douyin_intelligence\\scripts\\cookies.txt"
+    ]
+    for cp in cookie_paths:
+        if os.path.exists(cp):
+            ydl_opts['cookiefile'] = cp
+            print(f"[*] Using cookies from: {cp}", file=sys.stderr)
+            break
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            print(f"[*] Starting download for: {target_url}", file=sys.stderr)
+            info = ydl.extract_info(target_url, download=True)
+            filename = ydl.prepare_filename(info)
+            # Ensure it has .mp4 extension due to merging
+            if not filename.endswith(".mp4"):
+                filename = os.path.splitext(filename)[0] + ".mp4"
+            
+            print(f"[+] Download Success: {filename}", file=sys.stderr)
+            return {"status": "success", "file": filename, "title": info.get("title")}
+    except Exception as e:
+        print(f"[!] Download Error: {e}", file=sys.stderr)
+        return {"status": "error", "message": str(e)}
+
+if __name__ == "__main__":
+    url = sys.argv[1]
+    out = sys.argv[2] if len(sys.argv) > 2 else "D:\\anti\\downloads"
+    res = download_douyin(url, out)
+    print(json.dumps(res, ensure_ascii=False, indent=2))

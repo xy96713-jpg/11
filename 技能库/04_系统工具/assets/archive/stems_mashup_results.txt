@@ -1,0 +1,666 @@
+================================================================================
+Rekordbox Stems Mashup搜索结果
+================================================================================
+
+找到 20 个推荐组合
+
+
+推荐组合 #1 - 评分: 65.0/100
+混搭类型: 标准Stems混搭
+============================================================
+
+歌曲A: Unknown - Brian McKnight - Back at One (C.N.M Pschuldtz & Judo Amapiano Edit)
+  BPM: 117.0 | 调性: 2789123578
+
+歌曲B: Unknown - WATER (PAUL GOUDA REMIX)
+  BPM: 117.0 | 调性: 2093053772
+
+匹配分析:
+  BPM: N/A
+  调性: N/A
+  人声: N/A
+  能量: N/A
+
+--- [最强大脑 Mashup 执行脚本] (评分: 65.0) ---
+方案：提取 [Deck A] 的人声，覆盖至 [Deck B]。
+操作：
+  1. [DECK 1 (主声)] 开启 Vocal Stem，关闭 Drums/Inst Stems。
+  2. [DECK 2 (底层)] 关闭 Vocal Stem，开启 Drums/Inst Stems。
+  4. 混音点：建议在 Deck B 的下次乐句转换处切入。
+
+维度分析:
+  - BPM: 20.0/20 (Diff: 0.0%)
+  - KEY: 0.0/15 (Unknown Key Format)
+  - STEMS: 5.0/25 (互补度: 0.05)
+  - BASS: 5.0/10 (冲突值: 1.00)
+  - STYLE_RHYTHM: 15.0/15 (Genre: 8.0, Pattern: 7)
+  - HARMONY: 15.0/15
+  - V3_PRO: 5.0/25 (律动匹配: 5.0)
+
+
+推荐组合 #2 - 评分: 65.0/100
+混搭类型: 标准Stems混搭
+============================================================
+
+歌曲A: Unknown - DONT KILL THE PARTY (GOSHA EDIT)
+  BPM: 130.0 | 调性: 2093053772
+
+歌曲B: Unknown - End Of Beginning ( Zeys Miami Bass Edit )
+  BPM: 130.0 | 调性: 955866900
+
+匹配分析:
+  BPM: N/A
+  调性: N/A
+  人声: N/A
+  能量: N/A
+
+--- [最强大脑 Mashup 执行脚本] (评分: 65.0) ---
+方案：提取 [Deck B] 的人声，覆盖至 [Deck A]。
+操作：
+  1. [DECK 2 (主声)] 开启 Vocal Stem，关闭 Drums/Inst Stems。
+  2. [DECK 1 (底层)] 关闭 Vocal Stem，开启 Drums/Inst Stems。
+  4. 混音点：建议在 Deck A 的下次乐句转换处切入。
+
+维度分析:
+  - BPM: 20.0/20 (Diff: 0.0%)
+  - KEY: 0.0/15 (Unknown Key Format)
+  - STEMS: 5.0/25 (互补度: 0.05)
+  - BASS: 5.0/10 (冲突值: 1.00)
+  - STYLE_RHYTHM: 15.0/15 (Genre: 8.0, Pattern: 7)
+  - HARMONY: 15.0/15
+  - V3_PRO: 5.0/25 (律动匹配: 5.0)
+
+
+推荐组合 #3 - 评分: 65.0/100
+混搭类型: 标准Stems混搭
+============================================================
+
+歌曲A: Unknown - DONT KILL THE PARTY (GOSHA EDIT)
+  BPM: 130.0 | 调性: 2093053772
+
+歌曲B: Unknown - FOLDED (EGNEVER NEW DRUMS)
+  BPM: 130.0 | 调性: 1694591909
+
+匹配分析:
+  BPM: N/A
+  调性: N/A
+  人声: N/A
+  能量: N/A
+
+--- [最强大脑 Mashup 执行脚本] (评分: 65.0) ---
+方案：提取 [Deck B] 的人声，覆盖至 [Deck A]。
+操作：
+  1. [DECK 2 (主声)] 开启 Vocal Stem，关闭 Drums/Inst Stems。
+  2. [DECK 1 (底层)] 关闭 Vocal Stem，开启 Drums/Inst Stems。
+  4. 混音点：建议在 Deck A 的下次乐句转换处切入。
+
+维度分析:
+  - BPM: 20.0/20 (Diff: 0.0%)
+  - KEY: 0.0/15 (Unknown Key Format)
+  - STEMS: 5.0/25 (互补度: 0.03)
+  - BASS: 5.0/10 (冲突值: 1.00)
+  - STYLE_RHYTHM: 15.0/15 (Genre: 8.0, Pattern: 7)
+  - HARMONY: 15.0/15
+  - V3_PRO: 5.0/25 (律动匹配: 5.0)
+
+
+推荐组合 #4 - 评分: 65.0/100
+混搭类型: 标准Stems混搭
+============================================================
+
+歌曲A: Unknown - DONT KILL THE PARTY (GOSHA EDIT)
+  BPM: 130.0 | 调性: 2093053772
+
+歌曲B: Megan Thee Stallion - Thot Shit
+  BPM: 130.0 | 调性: 73535916
+
+匹配分析:
+  BPM: N/A
+  调性: N/A
+  人声: N/A
+  能量: N/A
+
+--- [最强大脑 Mashup 执行脚本] (评分: 65.0) ---
+方案：提取 [Deck A] 的人声，覆盖至 [Deck B]。
+操作：
+  1. [DECK 1 (主声)] 开启 Vocal Stem，关闭 Drums/Inst Stems。
+  2. [DECK 2 (底层)] 关闭 Vocal Stem，开启 Drums/Inst Stems。
+  4. 混音点：建议在 Deck B 的下次乐句转换处切入。
+
+维度分析:
+  - BPM: 20.0/20 (Diff: 0.0%)
+  - KEY: 0.0/15 (Unknown Key Format)
+  - STEMS: 5.0/25 (互补度: 0.05)
+  - BASS: 5.0/10 (冲突值: 1.00)
+  - STYLE_RHYTHM: 15.0/15 (Genre: 8.0, Pattern: 7)
+  - HARMONY: 15.0/15
+  - V3_PRO: 5.0/25 (律动匹配: 5.0)
+
+
+推荐组合 #5 - 评分: 65.0/100
+混搭类型: 标准Stems混搭
+============================================================
+
+歌曲A: Unknown - BEEZ IN THE TRAP - JUSTDREW EDIT
+  BPM: 133.0 | 调性: 2957765574
+
+歌曲B: Unknown - Good Graces (Sizzlesat Ciko & Anastasha Edit)
+  BPM: 133.0 | 调性: 2349455393
+
+匹配分析:
+  BPM: N/A
+  调性: N/A
+  人声: N/A
+  能量: N/A
+
+--- [最强大脑 Mashup 执行脚本] (评分: 65.0) ---
+方案：提取 [Deck A] 的人声，覆盖至 [Deck B]。
+操作：
+  1. [DECK 1 (主声)] 开启 Vocal Stem，关闭 Drums/Inst Stems。
+  2. [DECK 2 (底层)] 关闭 Vocal Stem，开启 Drums/Inst Stems。
+  4. 混音点：建议在 Deck B 的下次乐句转换处切入。
+
+维度分析:
+  - BPM: 20.0/20 (Diff: 0.0%)
+  - KEY: 0.0/15 (Unknown Key Format)
+  - STEMS: 5.0/25 (互补度: 0.07)
+  - BASS: 5.0/10 (冲突值: 1.00)
+  - STYLE_RHYTHM: 15.0/15 (Genre: 8.0, Pattern: 7)
+  - HARMONY: 15.0/15
+  - V3_PRO: 5.0/25 (律动匹配: 5.0)
+
+
+推荐组合 #6 - 评分: 65.0/100
+混搭类型: 标准Stems混搭
+============================================================
+
+歌曲A: Unknown - Kendrick Lamar ft. SZA - luther [Bryan Salu & JUDO Edit] #pitched down due to copyright
+  BPM: 135.0 | 调性: 955866900
+
+歌曲B: Unknown - Kiss Me Thru The Phone (Kareem Remix)
+  BPM: 135.0 | 调性: 73535916
+
+匹配分析:
+  BPM: N/A
+  调性: N/A
+  人声: N/A
+  能量: N/A
+
+--- [最强大脑 Mashup 执行脚本] (评分: 65.0) ---
+方案：提取 [Deck A] 的人声，覆盖至 [Deck B]。
+操作：
+  1. [DECK 1 (主声)] 开启 Vocal Stem，关闭 Drums/Inst Stems。
+  2. [DECK 2 (底层)] 关闭 Vocal Stem，开启 Drums/Inst Stems。
+  4. 混音点：建议在 Deck B 的下次乐句转换处切入。
+
+维度分析:
+  - BPM: 20.0/20 (Diff: 0.0%)
+  - KEY: 0.0/15 (Unknown Key Format)
+  - STEMS: 5.0/25 (互补度: 0.08)
+  - BASS: 5.0/10 (冲突值: 1.00)
+  - STYLE_RHYTHM: 15.0/15 (Genre: 8.0, Pattern: 7)
+  - HARMONY: 15.0/15
+  - V3_PRO: 5.0/25 (律动匹配: 5.0)
+
+
+推荐组合 #7 - 评分: 65.0/100
+混搭类型: 标准Stems混搭
+============================================================
+
+歌曲A: Unknown - Folded_Complete
+  BPM: 130.0 | 调性: 955866900
+
+歌曲B: Unknown - Rock That Body (GALVH & GALIHPAN EDIT)
+  BPM: 130.0 | 调性: 2349455393
+
+匹配分析:
+  BPM: N/A
+  调性: N/A
+  人声: N/A
+  能量: N/A
+
+--- [最强大脑 Mashup 执行脚本] (评分: 65.0) ---
+方案：提取 [Deck B] 的人声，覆盖至 [Deck A]。
+操作：
+  1. [DECK 2 (主声)] 开启 Vocal Stem，关闭 Drums/Inst Stems。
+  2. [DECK 1 (底层)] 关闭 Vocal Stem，开启 Drums/Inst Stems。
+  4. 混音点：建议在 Deck A 的下次乐句转换处切入。
+
+维度分析:
+  - BPM: 20.0/20 (Diff: 0.0%)
+  - KEY: 0.0/15 (Unknown Key Format)
+  - STEMS: 5.0/25 (互补度: 0.02)
+  - BASS: 5.0/10 (冲突值: 1.00)
+  - STYLE_RHYTHM: 15.0/15 (Genre: 8.0, Pattern: 7)
+  - HARMONY: 15.0/15
+  - V3_PRO: 5.0/25 (律动匹配: 5.0)
+
+
+推荐组合 #8 - 评分: 65.0/100
+混搭类型: 标准Stems混搭
+============================================================
+
+歌曲A: Unknown - Folded_Complete
+  BPM: 130.0 | 调性: 955866900
+
+歌曲B: Unknown - NISSAN ALTIMA x Violin
+  BPM: 130.0 | 调性: 2349455393
+
+匹配分析:
+  BPM: N/A
+  调性: N/A
+  人声: N/A
+  能量: N/A
+
+--- [最强大脑 Mashup 执行脚本] (评分: 65.0) ---
+方案：提取 [Deck A] 的人声，覆盖至 [Deck B]。
+操作：
+  1. [DECK 1 (主声)] 开启 Vocal Stem，关闭 Drums/Inst Stems。
+  2. [DECK 2 (底层)] 关闭 Vocal Stem，开启 Drums/Inst Stems。
+  4. 混音点：建议在 Deck B 的下次乐句转换处切入。
+
+维度分析:
+  - BPM: 20.0/20 (Diff: 0.0%)
+  - KEY: 0.0/15 (Unknown Key Format)
+  - STEMS: 5.0/25 (互补度: 0.05)
+  - BASS: 5.0/10 (冲突值: 1.00)
+  - STYLE_RHYTHM: 15.0/15 (Genre: 8.0, Pattern: 7)
+  - HARMONY: 15.0/15
+  - V3_PRO: 5.0/25 (律动匹配: 5.0)
+
+
+推荐组合 #9 - 评分: 65.0/100
+混搭类型: 标准Stems混搭
+============================================================
+
+歌曲A: Unknown - Folded_Complete
+  BPM: 130.0 | 调性: 955866900
+
+歌曲B: Unknown - Locked Away (TJUA LOTUS UK GARAGE FLIP) - R.City ft. Adam Levine
+  BPM: 130.0 | 调性: 3680533799
+
+匹配分析:
+  BPM: N/A
+  调性: N/A
+  人声: N/A
+  能量: N/A
+
+--- [最强大脑 Mashup 执行脚本] (评分: 65.0) ---
+方案：提取 [Deck A] 的人声，覆盖至 [Deck B]。
+操作：
+  1. [DECK 1 (主声)] 开启 Vocal Stem，关闭 Drums/Inst Stems。
+  2. [DECK 2 (底层)] 关闭 Vocal Stem，开启 Drums/Inst Stems。
+  4. 混音点：建议在 Deck B 的下次乐句转换处切入。
+
+维度分析:
+  - BPM: 20.0/20 (Diff: 0.0%)
+  - KEY: 0.0/15 (Unknown Key Format)
+  - STEMS: 5.0/25 (互补度: 0.07)
+  - BASS: 5.0/10 (冲突值: 1.00)
+  - STYLE_RHYTHM: 15.0/15 (Genre: 8.0, Pattern: 7)
+  - HARMONY: 15.0/15
+  - V3_PRO: 5.0/25 (律动匹配: 5.0)
+
+
+推荐组合 #10 - 评分: 65.0/100
+混搭类型: 标准Stems混搭
+============================================================
+
+歌曲A: Unknown - TYLA - ART (NAKEN EDIT)
+  BPM: 130.0 | 调性: 1694591909
+
+歌曲B: Unknown - La Gatita
+  BPM: 130.0 | 调性: 3369777328
+
+匹配分析:
+  BPM: N/A
+  调性: N/A
+  人声: N/A
+  能量: N/A
+
+--- [最强大脑 Mashup 执行脚本] (评分: 65.0) ---
+方案：提取 [Deck B] 的人声，覆盖至 [Deck A]。
+操作：
+  1. [DECK 2 (主声)] 开启 Vocal Stem，关闭 Drums/Inst Stems。
+  2. [DECK 1 (底层)] 关闭 Vocal Stem，开启 Drums/Inst Stems。
+  4. 混音点：建议在 Deck A 的下次乐句转换处切入。
+
+维度分析:
+  - BPM: 20.0/20 (Diff: 0.0%)
+  - KEY: 0.0/15 (Unknown Key Format)
+  - STEMS: 5.0/25 (互补度: 0.06)
+  - BASS: 5.0/10 (冲突值: 1.00)
+  - STYLE_RHYTHM: 15.0/15 (Genre: 8.0, Pattern: 7)
+  - HARMONY: 15.0/15
+  - V3_PRO: 5.0/25 (律动匹配: 5.0)
+
+
+推荐组合 #11 - 评分: 65.0/100
+混搭类型: 标准Stems混搭
+============================================================
+
+歌曲A: Unknown - TYLA - ART (NAKEN EDIT)
+  BPM: 130.0 | 调性: 1694591909
+
+歌曲B: Unknown - When Im With You (Andrz & Mikel Miami Bass Edit)
+  BPM: 130.0 | 调性: 1761859449
+
+匹配分析:
+  BPM: N/A
+  调性: N/A
+  人声: N/A
+  能量: N/A
+
+--- [最强大脑 Mashup 执行脚本] (评分: 65.0) ---
+方案：提取 [Deck B] 的人声，覆盖至 [Deck A]。
+操作：
+  1. [DECK 2 (主声)] 开启 Vocal Stem，关闭 Drums/Inst Stems。
+  2. [DECK 1 (底层)] 关闭 Vocal Stem，开启 Drums/Inst Stems。
+  4. 混音点：建议在 Deck A 的下次乐句转换处切入。
+
+维度分析:
+  - BPM: 20.0/20 (Diff: 0.0%)
+  - KEY: 0.0/15 (Unknown Key Format)
+  - STEMS: 5.0/25 (互补度: 0.03)
+  - BASS: 5.0/10 (冲突值: 1.00)
+  - STYLE_RHYTHM: 15.0/15 (Genre: 8.0, Pattern: 7)
+  - HARMONY: 15.0/15
+  - V3_PRO: 5.0/25 (律动匹配: 5.0)
+
+
+推荐组合 #12 - 评分: 65.0/100
+混搭类型: 标准Stems混搭
+============================================================
+
+歌曲A: Unknown - End Of Beginning ( Zeys Miami Bass Edit )
+  BPM: 130.0 | 调性: 955866900
+
+歌曲B: Unknown - FOLDED (EGNEVER NEW DRUMS)
+  BPM: 130.0 | 调性: 1694591909
+
+匹配分析:
+  BPM: N/A
+  调性: N/A
+  人声: N/A
+  能量: N/A
+
+--- [最强大脑 Mashup 执行脚本] (评分: 65.0) ---
+方案：提取 [Deck A] 的人声，覆盖至 [Deck B]。
+操作：
+  1. [DECK 1 (主声)] 开启 Vocal Stem，关闭 Drums/Inst Stems。
+  2. [DECK 2 (底层)] 关闭 Vocal Stem，开启 Drums/Inst Stems。
+  4. 混音点：建议在 Deck B 的下次乐句转换处切入。
+
+维度分析:
+  - BPM: 20.0/20 (Diff: 0.0%)
+  - KEY: 0.0/15 (Unknown Key Format)
+  - STEMS: 5.0/25 (互补度: 0.02)
+  - BASS: 5.0/10 (冲突值: 1.00)
+  - STYLE_RHYTHM: 15.0/15 (Genre: 8.0, Pattern: 7)
+  - HARMONY: 15.0/15
+  - V3_PRO: 5.0/25 (律动匹配: 5.0)
+
+
+推荐组合 #13 - 评分: 65.0/100
+混搭类型: 标准Stems混搭
+============================================================
+
+歌曲A: Unknown - End Of Beginning ( Zeys Miami Bass Edit )
+  BPM: 130.0 | 调性: 955866900
+
+歌曲B: Megan Thee Stallion - Thot Shit
+  BPM: 130.0 | 调性: 73535916
+
+匹配分析:
+  BPM: N/A
+  调性: N/A
+  人声: N/A
+  能量: N/A
+
+--- [最强大脑 Mashup 执行脚本] (评分: 65.0) ---
+方案：提取 [Deck A] 的人声，覆盖至 [Deck B]。
+操作：
+  1. [DECK 1 (主声)] 开启 Vocal Stem，关闭 Drums/Inst Stems。
+  2. [DECK 2 (底层)] 关闭 Vocal Stem，开启 Drums/Inst Stems。
+  4. 混音点：建议在 Deck B 的下次乐句转换处切入。
+
+维度分析:
+  - BPM: 20.0/20 (Diff: 0.0%)
+  - KEY: 0.0/15 (Unknown Key Format)
+  - STEMS: 5.0/25 (互补度: 0.10)
+  - BASS: 5.0/10 (冲突值: 1.00)
+  - STYLE_RHYTHM: 15.0/15 (Genre: 8.0, Pattern: 7)
+  - HARMONY: 15.0/15
+  - V3_PRO: 5.0/25 (律动匹配: 5.0)
+
+
+推荐组合 #14 - 评分: 65.0/100
+混搭类型: 标准Stems混搭
+============================================================
+
+歌曲A: Unknown - Mahalia - Pity (DISSO & Daan de Haardt EDIT)
+  BPM: 108.0 | 调性: 2957765574
+
+歌曲B: Unknown - Nelly - Dilemma (Madsko x Dan Bravo Remix)  Hypeddit 1  BUY  FREE DL
+  BPM: 108.0 | 调性: 2349455393
+
+匹配分析:
+  BPM: N/A
+  调性: N/A
+  人声: N/A
+  能量: N/A
+
+--- [最强大脑 Mashup 执行脚本] (评分: 65.0) ---
+方案：提取 [Deck A] 的人声，覆盖至 [Deck B]。
+操作：
+  1. [DECK 1 (主声)] 开启 Vocal Stem，关闭 Drums/Inst Stems。
+  2. [DECK 2 (底层)] 关闭 Vocal Stem，开启 Drums/Inst Stems。
+  4. 混音点：建议在 Deck B 的下次乐句转换处切入。
+
+维度分析:
+  - BPM: 20.0/20 (Diff: 0.0%)
+  - KEY: 0.0/15 (Unknown Key Format)
+  - STEMS: 5.0/25 (互补度: 0.11)
+  - BASS: 5.0/10 (冲突值: 1.00)
+  - STYLE_RHYTHM: 15.0/15 (Genre: 8.0, Pattern: 7)
+  - HARMONY: 15.0/15
+  - V3_PRO: 5.0/25 (律动匹配: 5.0)
+
+
+推荐组合 #15 - 评分: 65.0/100
+混搭类型: 标准Stems混搭
+============================================================
+
+歌曲A: Unknown - MIRACLE MAKER (GALANG KAI EDIT)  HYPEDDIT WORLD 2.mp3
+  BPM: 130.0 | 调性: 1832635906
+
+歌曲B: Unknown - Made For Me (Egnever Miami Bass Edit)
+  BPM: 130.0 | 调性: 1698814205
+
+匹配分析:
+  BPM: N/A
+  调性: N/A
+  人声: N/A
+  能量: N/A
+
+--- [最强大脑 Mashup 执行脚本] (评分: 65.0) ---
+方案：提取 [Deck B] 的人声，覆盖至 [Deck A]。
+操作：
+  1. [DECK 2 (主声)] 开启 Vocal Stem，关闭 Drums/Inst Stems。
+  2. [DECK 1 (底层)] 关闭 Vocal Stem，开启 Drums/Inst Stems。
+  4. 混音点：建议在 Deck A 的下次乐句转换处切入。
+
+维度分析:
+  - BPM: 20.0/20 (Diff: 0.0%)
+  - KEY: 0.0/15 (Unknown Key Format)
+  - STEMS: 5.0/25 (互补度: 0.14)
+  - BASS: 5.0/10 (冲突值: 1.00)
+  - STYLE_RHYTHM: 15.0/15 (Genre: 8.0, Pattern: 7)
+  - HARMONY: 15.0/15
+  - V3_PRO: 5.0/25 (律动匹配: 5.0)
+
+
+推荐组合 #16 - 评分: 65.0/100
+混搭类型: 标准Stems混搭
+============================================================
+
+歌曲A: Unknown - MIRACLE MAKER (GALANG KAI EDIT)  HYPEDDIT WORLD 2.mp3
+  BPM: 130.0 | 调性: 1832635906
+
+歌曲B: Unknown - Estelle_Kayne_West_-_American_Boy_ZEEMUFFIN_Refilled_Remix_Copyright_Filtered
+  BPM: 130.0 | 调性: 3369777328
+
+匹配分析:
+  BPM: N/A
+  调性: N/A
+  人声: N/A
+  能量: N/A
+
+--- [最强大脑 Mashup 执行脚本] (评分: 65.0) ---
+方案：提取 [Deck B] 的人声，覆盖至 [Deck A]。
+操作：
+  1. [DECK 2 (主声)] 开启 Vocal Stem，关闭 Drums/Inst Stems。
+  2. [DECK 1 (底层)] 关闭 Vocal Stem，开启 Drums/Inst Stems。
+  4. 混音点：建议在 Deck A 的下次乐句转换处切入。
+
+维度分析:
+  - BPM: 20.0/20 (Diff: 0.0%)
+  - KEY: 0.0/15 (Unknown Key Format)
+  - STEMS: 5.0/25 (互补度: 0.02)
+  - BASS: 5.0/10 (冲突值: 1.00)
+  - STYLE_RHYTHM: 15.0/15 (Genre: 8.0, Pattern: 7)
+  - HARMONY: 15.0/15
+  - V3_PRO: 5.0/25 (律动匹配: 5.0)
+
+
+推荐组合 #17 - 评分: 65.0/100
+混搭类型: 标准Stems混搭
+============================================================
+
+歌曲A: Unknown - Vanessa Carlton - A Thousand Miles (Madsko Edit)  BUY  FREE DL
+  BPM: 100.0 | 调性: 3168082390
+
+歌曲B: Unknown - Foot Fungus (Matthewville Edit)
+  BPM: 100.0 | 调性: 1761859449
+
+匹配分析:
+  BPM: N/A
+  调性: N/A
+  人声: N/A
+  能量: N/A
+
+--- [最强大脑 Mashup 执行脚本] (评分: 65.0) ---
+方案：提取 [Deck A] 的人声，覆盖至 [Deck B]。
+操作：
+  1. [DECK 1 (主声)] 开启 Vocal Stem，关闭 Drums/Inst Stems。
+  2. [DECK 2 (底层)] 关闭 Vocal Stem，开启 Drums/Inst Stems。
+  4. 混音点：建议在 Deck B 的下次乐句转换处切入。
+
+维度分析:
+  - BPM: 20.0/20 (Diff: 0.0%)
+  - KEY: 0.0/15 (Unknown Key Format)
+  - STEMS: 5.0/25 (互补度: 0.10)
+  - BASS: 5.0/10 (冲突值: 1.00)
+  - STYLE_RHYTHM: 15.0/15 (Genre: 8.0, Pattern: 7)
+  - HARMONY: 15.0/15
+  - V3_PRO: 5.0/25 (律动匹配: 5.0)
+
+
+推荐组合 #18 - 评分: 65.0/100
+混搭类型: 标准Stems混搭
+============================================================
+
+歌曲A: Unknown - TV_Off_Smochi_Gqom_Grind
+  BPM: 130.0 | 调性: 1107451564
+
+歌曲B: Unknown - Where Have You Been (AIRLANGGA EDIT)
+  BPM: 130.0 | 调性: 1107451564
+
+匹配分析:
+  BPM: N/A
+  调性: N/A
+  人声: N/A
+  能量: N/A
+
+--- [最强大脑 Mashup 执行脚本] (评分: 65.0) ---
+方案：提取 [Deck A] 的人声，覆盖至 [Deck B]。
+操作：
+  1. [DECK 1 (主声)] 开启 Vocal Stem，关闭 Drums/Inst Stems。
+  2. [DECK 2 (底层)] 关闭 Vocal Stem，开启 Drums/Inst Stems。
+  4. 混音点：建议在 Deck B 的下次乐句转换处切入。
+
+维度分析:
+  - BPM: 20.0/20 (Diff: 0.0%)
+  - KEY: 0.0/15 (Unknown Key Format)
+  - STEMS: 5.0/25 (互补度: 0.08)
+  - BASS: 5.0/10 (冲突值: 1.00)
+  - STYLE_RHYTHM: 15.0/15 (Genre: 8.0, Pattern: 7)
+  - HARMONY: 15.0/15
+  - V3_PRO: 5.0/25 (律动匹配: 5.0)
+
+
+推荐组合 #19 - 评分: 65.0/100
+混搭类型: 标准Stems混搭
+============================================================
+
+歌曲A: Unknown - Move (Jenive Amapiano Edit) [BUY  FREE DL]
+  BPM: 113.0 | 调性: 1761859449
+
+歌曲B: Unknown - Tyler The Creator - Balloon Gosha Amapiano Edit
+  BPM: 113.0 | 调性: 1761859449
+
+匹配分析:
+  BPM: N/A
+  调性: N/A
+  人声: N/A
+  能量: N/A
+
+--- [最强大脑 Mashup 执行脚本] (评分: 65.0) ---
+方案：提取 [Deck B] 的人声，覆盖至 [Deck A]。
+操作：
+  1. [DECK 2 (主声)] 开启 Vocal Stem，关闭 Drums/Inst Stems。
+  2. [DECK 1 (底层)] 关闭 Vocal Stem，开启 Drums/Inst Stems。
+  4. 混音点：建议在 Deck A 的下次乐句转换处切入。
+
+维度分析:
+  - BPM: 20.0/20 (Diff: 0.0%)
+  - KEY: 0.0/15 (Unknown Key Format)
+  - STEMS: 5.0/25 (互补度: 0.07)
+  - BASS: 5.0/10 (冲突值: 1.00)
+  - STYLE_RHYTHM: 15.0/15 (Genre: 8.0, Pattern: 7)
+  - HARMONY: 15.0/15
+  - V3_PRO: 5.0/25 (律动匹配: 5.0)
+
+
+推荐组合 #20 - 评分: 65.0/100
+混搭类型: 标准Stems混搭
+============================================================
+
+歌曲A: Unknown - Made For Me (Egnever Miami Bass Edit)
+  BPM: 130.0 | 调性: 1698814205
+
+歌曲B: Unknown - Estelle_Kayne_West_-_American_Boy_ZEEMUFFIN_Refilled_Remix_Copyright_Filtered
+  BPM: 130.0 | 调性: 3369777328
+
+匹配分析:
+  BPM: N/A
+  调性: N/A
+  人声: N/A
+  能量: N/A
+
+--- [最强大脑 Mashup 执行脚本] (评分: 65.0) ---
+方案：提取 [Deck A] 的人声，覆盖至 [Deck B]。
+操作：
+  1. [DECK 1 (主声)] 开启 Vocal Stem，关闭 Drums/Inst Stems。
+  2. [DECK 2 (底层)] 关闭 Vocal Stem，开启 Drums/Inst Stems。
+  4. 混音点：建议在 Deck B 的下次乐句转换处切入。
+
+维度分析:
+  - BPM: 20.0/20 (Diff: 0.0%)
+  - KEY: 0.0/15 (Unknown Key Format)
+  - STEMS: 5.0/25 (互补度: 0.12)
+  - BASS: 5.0/10 (冲突值: 1.00)
+  - STYLE_RHYTHM: 15.0/15 (Genre: 8.0, Pattern: 7)
+  - HARMONY: 15.0/15
+  - V3_PRO: 5.0/25 (律动匹配: 5.0)
+
