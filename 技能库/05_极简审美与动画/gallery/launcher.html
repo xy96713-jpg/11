@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visual Gallery Launcher</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            color: #fff;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
+            z-index: 2;
+        }
+
+        h1 {
+            font-weight: 200;
+            letter-spacing: 0.1em;
+            margin-bottom: 3rem;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2rem;
+            max-width: 800px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 2rem;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .card:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .card h2 {
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .card p {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .status {
+            font-size: 0.7rem;
+            display: inline-block;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+
+        .status.app {
+            background: rgba(0, 100, 255, 0.2);
+            color: #4aa;
+        }
+
+        .status.new {
+            background: rgba(255, 0, 100, 0.2);
+            color: #f4a;
+        }
+
+        /* Subtle Background Animation */
+        .bg-anim {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 50% 50%, rgba(20, 20, 20, 1) 0%, #000 100%);
+            z-index: 1;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg-anim"></div>
+    <div class="container">
+        <h1>VISUAL COLLECTION</h1>
+        <div class="grid">
+            <a href="index.html" class="card">
+                <span class="status app">MAIN APPLICATION</span>
+                <h2>ULTRA Visuals Gallery</h2>
+                <p>The core React application with 3D particles, audio visualization, and main showcase.</p>
+            </a>
+
+            <a href="new_jeans_particles.html" class="card">
+                <span class="status new">NEW DROP</span>
+                <h2>New Jeans Particles</h2>
+                <p>Standalone particle reconstruction effect based on the latest visual card asset.</p>
+            </a>
+        </div>
+    </div>
+</body>
+
+</html>
