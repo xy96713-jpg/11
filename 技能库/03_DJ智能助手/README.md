@@ -1,12 +1,20 @@
-# 🎧 DJ 智能助手 (DJ Intelligence / Master DJ V7.4 Ultra+)
+# 🎧 DJ 智能助手 (DJ Intelligence / Master DJ V7.5 Pro)
 
-本模块已升级至**最新的 V7.4 极致版**。它是专为多场景混音与高难度 Mashup 审计设计的顶级引擎，集成了行业领先的“弹性节奏”与“物理保护”算法。
+本模块已升级至**最新的 V7.5 专家版**。在 V7.4 弹性节奏与物理保护的基础上，新增了“防撞车 (Remix Guard)”与“全量残差 (Universal Residuals)”审计体系。
 
-## 🌟 V7.4 核心算法 (Core V7.4 Logic)
+## 🌟 V7.5 核心升级 (V7.5 Core Upgrades)
 
-### 1. 🌈 弹性节奏比对 (Elastic Rhythm Matching)
+### 1. 🛡️ 防撞车系统 (Remix Guard)
+- **技术点**: 基于标题令牌 (Token) 的智能去重。
+- **价值**: 自动拦截同一首歌曲的不同版本（如 Original vs Remix），确保 Set 的新鲜感。
+
+### 2. 🚧 全量残差报告 (Universal Residuals)
+- **技术点**: 100% 透明度输出。
+- **价值**: 即使是没有进入 Set 的歌曲，也会在报告末尾列出并注明剔除原因（BPM/Key/Collision）。
+
+### 3. 🌈 弹性节奏比对 (Elastic Rhythm Matching)
 - **技术点**: 支持高达 **10% (约 10-15 BPM)** 的创意跨度比对。
-- **价值**: 它不再机械地寻找相同 BPM，而是能识别出即便 BPM 不同、但节奏感（Groove）能够完美契合的潜在 Mashup 组合。
+- **价值**: 识别节奏感（Groove）契合但 BPM 差异大的潜在搭配。
 
 ### 2. 🛡️ 本体感保护系统 (Proprioception Protection)
 - **技术点**: 智能审计非 1:1 匹配时的“本体偏移”。

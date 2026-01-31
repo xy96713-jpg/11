@@ -9,3 +9,6 @@
 ## 🛡️ Feature Protocols
 - **Remix Guard**: System MUST prevent duplicate versions of the same song (e.g., Original vs Remix) in the same set unless explicitly overridden.
 - **Universal Output**: System MUST output ALL analyzed tracks (including those rejected) to a "Residuals" or "Incompatible" section to ensure transparency.
+
+## 🚀 Standard Workflow
+- Please follow the official **[DJ Set Generation Workflow](file:///d:/anti/.agent/workflows/generate-set.md)** for all production runs.

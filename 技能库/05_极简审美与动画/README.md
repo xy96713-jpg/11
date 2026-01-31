@@ -37,16 +37,16 @@
 
 ---
 
-## 🌐 在线画廊 (Online Gallery)
+## 🎨 视觉画廊 (Visual Gallery)
 
-**[🔗 点击访问 GitHub 画廊](https://github.com/xy96713-jpg/11/tree/main/%E6%8A%80%E8%83%BD%E5%BA%93/05_%E6%9E%81%E7%AE%80%E5%AE%A1%E7%BE%8E%E4%B8%8E%E5%8A%A8%E7%94%BB)**
+**[🌐 进入实时动效画廊 (Recommended)](https://htmlpreview.github.io/?https://github.com/xy96713-jpg/11/blob/main/%E6%8A%80%E8%83%BD%E5%BA%93/05_%E6%9E%81%E7%AE%80%E5%AE%A1%E7%BE%8E%E4%B8%8E%E5%8A%A8%E7%94%BB/gallery/index.html)**
 
-在这里您可以浏览所有已归档的动效模板源码，包括：
-- 🎵 音画同步可视化器
-- 💫 粒子流动背景
-- 🌌 赛博朋克登录界面
-- 📱 移动端分享卡片
-- ...更多持续更新中
+| 动效场景 | 立即预览 (Preview) | 源代码仓库 (Source) |
+| :--- | :--- | :--- |
+| **🎵 音画同步可视化器** | [🚀 立即体验](https://htmlpreview.github.io/?https://github.com/xy96713-jpg/11/blob/main/%E6%8A%80%E8%83%BD%E5%BA%93/05_%E6%9E%81%E7%AE%80%E5%AE%A1%E7%BE%8E%E4%B8%8E%E5%8A%A8%E7%94%BB/assets/audio_visualizer.html) | [📄 Source](https://github.com/xy96713-jpg/11/blob/main/%E6%8A%80%E8%83%BD%E5%BA%93/05_%E6%9E%81%E7%AE%80%E5%AE%A1%E7%BE%8E%E4%B8%8E%E5%8A%A8%E7%94%BB/assets/audio_visualizer.html) |
+| **💫 粒子流动背景** | [🚀 立即体验](https://htmlpreview.github.io/?https://github.com/xy96713-jpg/11/blob/main/%E6%8A%80%E8%83%BD%E5%BA%93/05_%E6%9E%81%E7%AE%80%E5%AE%A1%E7%BE%8E%E4%B8%8E%E5%8A%A8%E7%94%BB/assets/floating_particles.html) | [📄 Source](https://github.com/xy96713-jpg/11/blob/main/%E6%8A%80%E8%83%BD%E5%BA%93/05_%E6%9E%81%E7%AE%80%E5%AE%A1%E7%BE%8E%E4%B8%8E%E5%8A%A8%E7%94%BB/assets/floating_particles.html) |
+
+> **提示**：点击“立即体验”后，请耐心等待几秒加载外部资源（如粒子库）。
 
 ---
 

@@ -3,10 +3,10 @@ name: rekordbox_xml_intelligence
 description: Rekordbox XML 深度集成与智能标点标准。涵盖 A-H 全量标点定义、Windows 路径兼容性协议、物理元数据注入及 PQTZ 量化准则。
 ---
 
-# Rekordbox XML Intelligence (RB 智能集成专家)
+# Rekordbox XML Intelligence (RB 智能集成专家 V7.5)
 
 ## 0. 核心宗旨
-本技能库旨在规范 AI 与 Rekordbox 之间的数据交换协议，确保所有生成的 HotCue、Memory Cue 及 XML 播放列表在物理层和逻辑层均能 100% 被 Rekordbox 正确解析、分析并显示。
+本技能库旨在规范 AI 与 Rekordbox 之间的数据交换协议，确保所有生成的 HotCue、Memory Cue 及 XML 播放列表在物理层和逻辑层均能 100% 被 Rekordbox 正确解析。V7.5 强化了防撞车逻辑与残差报告。
 
 ---
 
