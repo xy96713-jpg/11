@@ -207,6 +207,11 @@ def download_and_search(query, filename=None, video_id=None):
 
     
     try:
+        # [V5.4 工业级对标修复] 彻底清洗旧标签，解决 Windows 灰白占位符问题
+        id3 = ID3(str(final_mp3_path))
+        id3.delete()
+        
+        # 重新初始化标签结构
         audio = MP3(str(final_mp3_path), ID3=ID3)
         if audio.tags is None: audio.add_tags()
         
@@ -223,50 +228,41 @@ def download_and_search(query, filename=None, video_id=None):
             else:
                 audio.tags.add(TIT2(encoding=3, text=video_title))
 
-        # [V7.1] 支持 URL 或二进制封面数据
+        # [V5.4] 支持 URL 或二进制封面数据，强制对标 'Cover' 描述符
         cover_embedded = False
-        if musicbrainz_cover_data:
-            # 直接使用 MusicBrainz 二进制数据
-            try:
-                img = Image.open(io.BytesIO(musicbrainz_cover_data))
-                w, h = img.size
-                if w != h:
-                    min_dim = min(w, h)
-                    left = (w - min_dim) / 2
-                    top = (h - min_dim) / 2
-                    img = img.crop((left, top, left + min_dim, top + min_dim))
-                
-                img_byte_arr = io.BytesIO()
-                img.save(img_byte_arr, format='JPEG', quality=95)
-                audio.tags.delall("APIC")
-                audio.tags.add(APIC(encoding=3, mime='image/jpeg', type=3, desc='Cover', data=img_byte_arr.getvalue()))
-                cover_embedded = True
-            except Exception as e:
-                print(f"⚠️ MusicBrainz 封面处理失败: {e}")
-        
-        if not cover_embedded and final_cover_url:
-            resp = requests.get(final_cover_url, timeout=15)
-            img = Image.open(io.BytesIO(resp.content))
-            
+        def process_img(img_data):
+            img = Image.open(io.BytesIO(img_data))
             w, h = img.size
             if w != h:
                 min_dim = min(w, h)
                 left = (w - min_dim) / 2
                 top = (h - min_dim) / 2
                 img = img.crop((left, top, left + min_dim, top + min_dim))
-            
-            img_byte_arr = io.BytesIO()
-            img.save(img_byte_arr, format='JPEG', quality=95)
-            audio.tags.delall("APIC")
-            audio.tags.add(APIC(encoding=3, mime='image/jpeg', type=3, desc='Cover', data=img_byte_arr.getvalue()))
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            buf = io.BytesIO()
+            img.save(buf, format='JPEG', quality=95)
+            return buf.getvalue()
+
+        if musicbrainz_cover_data:
+            try:
+                final_data = process_img(musicbrainz_cover_data)
+                audio.tags.add(APIC(encoding=3, mime='image/jpeg', type=3, desc='Cover', data=final_data))
+                cover_embedded = True
+            except Exception as e:
+                print(f"⚠️ MusicBrainz 封面处理失败: {e}")
+        
+        if not cover_embedded and final_cover_url:
+            resp = requests.get(final_cover_url, timeout=15)
+            final_data = process_img(resp.content)
+            audio.tags.add(APIC(encoding=3, mime='image/jpeg', type=3, desc='Cover', data=final_data))
             cover_embedded = True
         
         if not cover_embedded:
             print("⚠️ 未能获取到任何封面")
 
-            
         audio.save(v2_version=3)
-        print("✅ ID3 标签(v2.3)与高清封面写入成功！")
+        print("✅ V5.4 工业级标签(v2.3)与高清封面写入成功！")
     except Exception as e:
         print(f"⚠️ 标签写入失败: {e}")
 

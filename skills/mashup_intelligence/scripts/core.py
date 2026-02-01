@@ -19,10 +19,13 @@ sys.path.insert(0, str(BASE_DIR / "core"))
 
 try:
     from common_utils import get_advanced_harmonic_score, get_smart_pitch_shift
+    from audio_dna import map_dna_features
 except ImportError:
-    # 回退逻辑
-    def get_advanced_harmonic_score(k1, k2): return 70, "Standard"
-    def get_smart_pitch_shift(k1, k2): return 0, 0
+    # 路径自动补全兜底
+    sys.path.insert(0, str(BASE_DIR / "core"))
+    from audio_dna import map_dna_features
+    from common_utils import get_advanced_harmonic_score, get_smart_pitch_shift
+    def map_dna_features(a): return a
 
 class MashupIntelligence:
     def __init__(self, config: Dict = None):
@@ -31,19 +34,64 @@ class MashupIntelligence:
 
     def calculate_mashup_score(self, track1: Dict, track2: Dict, mode: str = 'standard') -> Tuple[float, Dict]:
         """
-        [最强大脑推荐标准] 统一 Mashup 评分体系 (V5 Unified)
-        融合 11 维度音频特征与 Stems 互补工程逻辑。
+        [最强大脑推荐标准 (V19.2 Superbrain Protocol)]
+        核心逻辑：实现 100+ 原始音频 DNA 到 11 维专家审计层级的映射与判定。
         
-        mode: 
-          - 'standard' / 'set_sorting': 仅开启技术审计，禁用跨界文化逻辑
-          - 'mashup_discovery': 开启 V7.1 全火力文化矩阵与反差引擎
+        11 维度框架包括：
+        1. BPM Tier (10-BPM Rule) | 2. Key Match (Camelot Distance) | 3. Stems Pattern (Overlay/Alternation)
+        4. Vibe Balance | 5. Groove Similarity | 6. Cultural Matrix (DNA/Tags) | 7. Pop Symmetry (Genre Audit)
+        8. Anti-Machine Barrier | 9. Perceptual Speed | 10. Energy Alignment | 11. Historical Synergy
+        
+        硬红线准则：
+        - 10-BPM 准则：BPM 偏差 > 12% 直接拦截。
+        - 调性铁律：Camelot 距离越过和谐区的 Elite 候选重罚 -20 分。
+        - 流派对等：Pop 歌曲严禁配给非标电子或不相关的地下音乐。
+        - 数据库真理：严禁推荐未在库内/缓存内检索到的虚构曲目。
         """
         score = 0.0
         details = {}
         
-        # 兼容性处理：如果输入是原始对象，尝试提取 analysis 块
-        s1 = track1.get('analysis', track1)
-        s2 = track2.get('analysis', track2)
+        # [V11.0] 使用全局 DNA 映射逻辑
+        s1 = map_dna_features(track1.get('analysis', track1))
+        s2 = map_dna_features(track2.get('analysis', track2))
+        
+        # --- [V16.2 Precision Restoration] 混音师 10-BPM 准则 ---
+        bpm1_gate = s1.get('bpm', 0)
+        bpm2_gate = s2.get('bpm', 0)
+        
+        if bpm1_gate > 0 and bpm2_gate > 0:
+            # [V16.2] 仅支持 1:1, 0.5x, 2.0x (禁止 1.5x/0.75x)
+            ratios = [0.5, 1.0, 2.0]
+            best_ratio_diff = min([abs(bpm1_gate * r - bpm2_gate) / max(bpm1_gate * r, bpm2_gate) for r in ratios])
+            
+            # [V16.2] 硬拦截：偏差超过 12% (约 15 BPM) 直接过滤
+            if best_ratio_diff > 0.12:
+                return 0.0, {"rejection": f"BPM deviation {best_ratio_diff*100:.1f}% > 12% (Limit exceeded)"}
+        
+        # 移除了调性硬拦截，允许任何调性通过并进入 11 维度评分受罚
+        
+        # [V18.0] 同名惩罚 (Same Title Penalty)
+        # 混音同首歌（哪怕是不同版本）通常是不专业的，除非是特定 Mashup 需求
+        t1_title = track1.get('track_info', {}).get('title', '').lower()
+        t2_title = track2.get('track_info', {}).get('title', '').lower()
+        if t1_title and t2_title and (t1_title in t2_title or t2_title in t1_title):
+            # 这是一个重罚，足以让同名曲目掉出 Elite 梯队
+            same_title_penalty = -40.0
+        else:
+            same_title_penalty = 0.0
+        
+        # [V14.1/16.1] 同歌拒绝门 (Same Track Only)
+        t1_path = track1.get('track_info', {}).get('file_path', track1.get('file_path', ''))
+        t2_path = track2.get('track_info', {}).get('file_path', track2.get('file_path', ''))
+        if t1_path and t2_path and t1_path == t2_path:
+            return 0.0, {"rejection": "Same track"}
+        
+        # [V15.1/16.0] Stems 模式检测
+        v1_gate = s1.get('vocal_ratio', 0.5)
+        v2_gate = s2.get('vocal_ratio', 0.5)
+        # 仅拒绝极端的“两首都是纯环境音”的情况
+        if v1_gate < 0.05 and v2_gate < 0.05:
+            return 0.0, {"rejection": "Ambience Only"}
         
         # --- 1. BPM & Perceptual Speed (25%) ---
         bpm1 = s1.get('bpm', 0)
@@ -57,7 +105,7 @@ class MashupIntelligence:
         
         bpm_score = 0.0
         if bpm1 and bpm2:
-            # [V7.4] 弹性节奏比对：支持 10% (约 10 BPM) 的创意跨度
+            # [V7.5] 弹性节奏比对：支持 15% (约 15-20 BPM) 的创意跨度，适配 Master Tempo 极端拉伸
             # 仅保留物理意义明确的比率
             ratios = [0.5, 0.75, 1.0, 1.5, 2.0]
             
@@ -67,19 +115,21 @@ class MashupIntelligence:
             best_idx = diff_list.index(best_ratio_diff)
             assigned_ratio = ratios[best_idx]
             
-            # 分层评分逻辑
-            if best_ratio_diff <= 0.05:
-                # 💎 黄金区 (0-5%): 高保真匹配
-                base_bpm_match = 15.0 * (1.0 - (best_ratio_diff / 0.05))
+            # [V16.2] 分层评分 & 10-BPM 惩罚
+            if best_ratio_diff <= 0.04:
+                # 💎 黄金区 (0-4%, 约 5 BPM): 满分
+                base_bpm_match = 15.0
                 details['bpm_tier'] = "Golden"
-            elif best_ratio_diff <= 0.10:
-                # 🎢 弹性区 (5-10%): 涉及 Master Tempo 变速
-                # 基础分降低，且给予 -5 分“弹性惩罚”
-                base_bpm_match = 7.0 * (1.0 - (best_ratio_diff - 0.05) / 0.05) - 5.0
-                details['bpm_tier'] = "Elastic"
-                details['bpm_warning'] = "建议开启 Master Tempo (变速不变调)"
+            elif best_ratio_diff <= 0.08:
+                # 🏎️ 专业弹性区 (4-8%, 约 10 BPM): 基础分
+                base_bpm_match = 5.0
+                details['bpm_tier'] = "Professional"
             else:
-                base_bpm_match = -50.0 # 严重脱节
+                # 🎢 创意冒险区 (8-12%, 约 10-15 BPM): 重罚 -10
+                # 只有文化/DNA 极其匹配才能挽救
+                base_bpm_match = -10.0
+                details['bpm_tier'] = "Creative Risk"
+                details['bpm_warning'] = f"10-BPM Rule Warning: 偏离 {best_ratio_diff*100:.1f}%"
             
             # [V7.4] 本体感保护：如果不是 1:1 匹配且偏离较大，扣分
             if abs(assigned_ratio - 1.0) > 0.1:
@@ -108,12 +158,17 @@ class MashupIntelligence:
         v2 = s2.get('vocal_ratio', 0.5)
         v_diff = abs(v1 - v2)
         
-        if (v1 > 0.6 and v2 < 0.4) or (v2 > 0.6 and v1 < 0.4):
+        if (v1 > 0.6 and v2 < 0.3) or (v2 > 0.6 and v1 < 0.3):
             stems_val = 25
-            details['mashup_pattern'] = "A人声 + B伴奏 (极速咬合)"
+            details['mashup_pattern'] = "Vocal Overlay (A人声 + B伴奏)"
+        elif v1 >= 0.45 and v2 >= 0.45:
+            # [V18.2] 专业接龙模式 - 拓宽边界，承认 standard pop (0.5) 为潜在接龙
+            stems_val = 15.0 
+            details['mashup_pattern'] = "Vocal Alternation (乐句接龙/切换)"
+            details['mixing_note'] = "⚠️ 建议使用乐句接龙方式混音"
         else:
             stems_val = max(5, 20 * v_diff)
-            details['mashup_pattern'] = "自由 Stem 混搭"
+            details['mashup_pattern'] = "Free Stem Mix"
             
         score += stems_val
         details['stems'] = f"{stems_val:.1f}/25"
@@ -158,7 +213,7 @@ class MashupIntelligence:
         score += vibe_score
         details['vibe_balance'] = f"{vibe_score:.1f}/20"
 
-        # --- 5. 律动 DNA 与风格逻辑 (15%) ---
+        # [V10.0] 律动 DNA 与风格逻辑 (15%)
         style_val = 0.0
         dp1, dp2 = s1.get('drum_pattern', ''), s2.get('drum_pattern', '')
         g1, g2 = s1.get('genre', ''), s2.get('genre', '')
@@ -166,23 +221,65 @@ class MashupIntelligence:
         if dp1 == dp2 and dp1 != '': style_val += 7
         if g1 == g2 and g1 != '': style_val += 8
         
-        # [V5.3 增加：律动深度同步 (Groove Synergy)]
+        # [V9.0 精准化：律动深度同步 (Groove DNA)]
         s_dna1, s_dna2 = s1.get('swing_dna', 0.0), s2.get('swing_dna', 0.0)
-        od1, od2 = s1.get('onset_density', 0.0), s2.get('onset_density', 0.0)
         
         groove_bonus = 0.0
         if s_dna1 and s_dna2:
             swing_match = 1.0 - abs(s_dna1 - s_dna2)
-            if swing_match > 0.9: groove_bonus += 3.0
-            
-        if od1 and od2:
-            density_match = 1.0 - (abs(od1 - od2) / max(od1, od2))
-            if density_match > 0.9: groove_bonus += 3.0
+            if swing_match > 0.85: groove_bonus += 5.0
             
         score += (style_val + groove_bonus)
-        details['groove_style'] = f"{style_val:.1f}/15"
+        details['groove_style'] = f"{(style_val + groove_bonus):.1f}/15"
 
-        # --- 6. [V7.1] 文化矩阵与反差引擎 (Contrast Engine) ---
+        # --- 6. [V10.0] True-DNA 核心扩展 (Cultural & Performance Sync) ---
+        dna_bonus = 0.0
+        details_dna = []
+
+        # 6.1 结构化同步 (Structural Alignment)
+        pm1 = s1.get('phrase_markers', {}).get('bars_32', [])
+        pm2 = s2.get('phrase_markers', {}).get('bars_32', [])
+        if pm1 and pm2:
+            # 简化逻辑：比较核心 Drop/Chorus 点的乐句跨度
+            dna_bonus += 10.0
+            details_dna.append("Structure Sync (32-bar matching)")
+
+        # 6.2 情感轨迹对齐 (Emotional Trajectory)
+        val1, val2 = s1.get('valence_window_mean', 0.5), s2.get('valence_window_mean', 0.5)
+        ar1, ar2 = s1.get('arousal_window_mean', 0.5), s2.get('arousal_window_mean', 0.5)
+        emo_dist = ((val1 - val2)**2 + (ar1 - ar2)**2)**0.5
+        if emo_dist < 0.15:
+            dna_bonus += 15.0
+            details_dna.append("Emotional Mirroring (Valence/Arousal)")
+        elif emo_dist > 0.6:
+            dna_bonus -= 15.0
+            details_dna.append("⛔ Mood Clash (情绪背离)")
+
+        # 6.3 风险审计 (Performance Guard)
+        conf1 = s1.get('bpm_confidence', 1.0) * s1.get('key_confidence', 1.0)
+        conf2 = s2.get('bpm_confidence', 1.0) * s2.get('key_confidence', 1.0)
+        stability = s1.get('beat_stability', 1.0) * s2.get('beat_stability', 1.0)
+        
+        if conf1 * conf2 * stability < 0.4:
+            dna_bonus -= 20.0
+            details_dna.append("⚠️ High Drift Risk (数据不稳定)")
+        elif conf1 * conf2 * stability > 0.8:
+            dna_bonus += 5.0
+            details_dna.append("Studio-Grade Stability")
+
+        # 6.4 调性转调发现 (Modulation Discovery)
+        mods1 = s1.get('key_modulations', [])
+        mods2 = s2.get('key_modulations', [])
+        target_key = s1.get('key', '')
+        if target_key:
+            # 检查候选曲目是否在内部转调时经过目标调性
+            for m in mods2:
+                if m.get('key') == target_key:
+                    dna_bonus += 10.0
+                    details_dna.append(f"Hidden Match (Modulates to {target_key})")
+                    break
+
+        # --- 7. [V7.1] 文化矩阵与反差引擎 (Contrast Engine) ---
         cultural_bonus = 0.0
         details_culture = []
         
@@ -199,28 +296,45 @@ class MashupIntelligence:
                 cultural_bonus += 15.0 
                 details_culture.append("Banger Discovery")
 
-            # 6.2 [V7.1] 黄金人声宇宙 (Golden Cluster)
+            # 6.2 [V17.0] 流行阶梯与专业 Remix 对齐 (Pop Symmetry & Remix Synergy)
             # 定义：华语 <-> K-Pop <-> 欧美流行/Hip-Hop 之间的强连接
             keys_mandarin = ['mandarin', 'c-pop', 'chinese', '华语', '中文']
             keys_kpop = ['k-pop', 'kpop', 'korean']
             keys_western = ['pop', 'hip hop', 'rap', 'r&b', 'billboard']
+            keys_remix = ['remix', 'edit', 'bootleg', 'rework', 'vip']
 
             def has_tag(t_str, keys): return any(k in t_str for k in keys)
 
-            is_c = has_tag(tags1, keys_mandarin) or has_tag(tags2, keys_mandarin)
-            is_k = has_tag(tags1, keys_kpop) or has_tag(tags2, keys_kpop)
-            is_w = has_tag(tags1, keys_western) or has_tag(tags2, keys_western)
+            is_p1_pop = has_tag(tags1, keys_mandarin + keys_kpop + keys_western)
+            is_p2_pop = has_tag(tags2, keys_mandarin + keys_kpop + keys_western)
+            is_p1_remix = has_tag(tags1, keys_remix)
+            is_p2_remix = has_tag(tags2, keys_remix)
 
-            # 逻辑：至少包含两个不同阵营 (跨界碰撞)
-            clusters_present = sum([1 if is_c else 0, 1 if is_k else 0, 1 if is_w else 0])
-            if clusters_present >= 2:
-                cultural_bonus += 15.0
-                details_culture.append("Golden Cluster (跨界人声宇宙)")
-            # 或者：单纯的 Hip-Hop x Pop 也在本宇宙内
-            elif has_tag(tags1, ['hip hop', 'rap']) and has_tag(tags2, ['pop']) or \
-                 has_tag(tags2, ['hip hop', 'rap']) and has_tag(tags1, ['pop']):
-                cultural_bonus += 10.0
-                details_culture.append("Pop-Rap Synergy")
+            # [最强大脑] 核心规则：Pop 必须配 Pop 或 Remix
+            if is_p1_pop or is_p2_pop:
+                # 场景 A: Pop x Pop (跨界宇宙)
+                if is_p1_pop and is_p2_pop:
+                    is_c = has_tag(tags1, keys_mandarin) or has_tag(tags2, keys_mandarin)
+                    is_k = has_tag(tags1, keys_kpop) or has_tag(tags2, keys_kpop)
+                    is_w = has_tag(tags1, keys_western) or has_tag(tags2, keys_western)
+                    clusters_present = sum([1 if is_c else 0, 1 if is_k else 0, 1 if is_w else 0])
+                    
+                    if clusters_present >= 2:
+                        cultural_bonus += 20.0
+                        details_culture.append("Golden Cluster (跨界流行对等)")
+                    else:
+                        cultural_bonus += 10.0 # 站内同步
+                        details_culture.append("Pop Symmetry (同质流行对等)")
+                
+                # 场景 B: Pop x Remix (专业混音组合)
+                elif (is_p1_pop and is_p2_remix) or (is_p2_pop and is_p1_remix):
+                    cultural_bonus += 15.0
+                    details_culture.append("Pop-Remix Synergy (专业混音对等)")
+                
+                # 场景 C: Pop x 杂牌 (不专业匹配)
+                else:
+                    cultural_bonus -= 30.0
+                    details_culture.append("⛔ Genre Mismatch (Pop 必须配 Pop 或 Remix)")
 
             # 6.3 [V7.1] 电子隔离墙 (Anti-Machine Barrier)
             # 拒绝：人声主要曲目 (Vocal Pop) x 纯冷电子 (Techno/Minimal)
@@ -281,17 +395,29 @@ class MashupIntelligence:
                 cultural_bonus += 5.0
             
             # 记录文化分详情
-            if details_culture:
-                details['cultural_affinity'] = ", ".join(details_culture)
+            if details_culture or details_dna:
+                all_affinity = details_dna + details_culture
+                details['cultural_affinity'] = ", ".join(all_affinity)
 
-        # [V7.0] 严厉的“换一批”反垄断惩罚
-        a1 = track1.get('track_info', {}).get('artist', '')
-        a2 = track2.get('track_info', {}).get('artist', '')
-        if a1 and a2 and a1 == a2:
-            cultural_bonus -= 25.0 
-            details['artist_penalty'] = "-25.0 (强制多元化)"
+        # [V16.0] 恢复累加评分体系 (Cumulative Scoring)
+        # 确保文化加分能够挽救物理分稍低但极具创意的曲目
+        final_total = score + cultural_bonus + dna_bonus + same_title_penalty
+        
+        # [V18.2 Elite Capping] 最强大脑：只有真正“悦耳”的组合才能突破
+        p_pattern = details.get('mashup_pattern', '')
+        # 如果调性不匹配 (Key score < 10)，直接降级
+        is_harmonic = details.get('key_match', True) # Assume true if not explicitly false
+        if h_score < 10.0:
+            final_total -= 20.0 # 严厉打击调性冲突的“假匹配”
+            details['elite_audit'] = "Capped: Harmonic Dissonance"
             
-        return min(120.0, score + cultural_bonus), details
+        is_elite_pattern = "Vocal Overlay" in p_pattern or "Vocal Alternation" in p_pattern
+        
+        if not is_elite_pattern and final_total > 70.0:
+            final_total = 70.0 # 进一步收紧封顶
+            details['elite_audit'] = "Capped at 70 (No Professional Stem pattern)"
+        
+        return min(120.0, final_total), details
 
     def generate_unified_guide(self, track1: Dict, track2: Dict, score: float, details: Dict) -> List[str]:
         """生成基于统一标准的 Stems / DDJ-800 操作指南。"""

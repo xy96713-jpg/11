@@ -8,6 +8,17 @@ Aesthetic Curator Skill (V4.0) - [最强大脑审美引擎]
 
 from typing import Dict, List, Tuple, Optional
 import math
+import sys
+from pathlib import Path
+
+# 【V11.0 Global DNS Sync】
+try:
+    from audio_dna import map_dna_features, calculate_dna_affinity
+    DNA_SYNC_ENABLED = True
+except ImportError:
+    DNA_SYNC_ENABLED = False
+    def map_dna_features(a): return a
+    def calculate_dna_affinity(d1, d2): return 0.0, []
 
 class AestheticCurator:
     # 1. 流派美学矩阵 (Genre Aesthetic Matrix)
@@ -39,14 +50,15 @@ class AestheticCurator:
         self.config = config or {}
 
     def get_track_vibe(self, track: Dict) -> str:
-        """从能量和人声比例等推断情感标签"""
-        energy = track.get('energy', 50)
-        vocal_ratio = track.get('vocal_ratio', 0.5)
-        genre = track.get('genre', '').lower()
+        """从能量、音色和人声比例推断情感标签 (V11.0 DNA)"""
+        dna = map_dna_features(track.get('analysis', track))
+        energy = dna.get('energy', 50)
+        vocal_ratio = dna.get('vocal_ratio', 0.5)
+        valence = dna.get('valence', 0.5)
         
         if energy > 75:
-            if "techno" in genre or "dark" in genre: return "Dark"
-            return "Uplifting"
+            if valence > 0.6: return "Uplifting"
+            return "Intense"
         elif energy < 40:
             if vocal_ratio < 0.3: return "Chill"
             return "Deep"
@@ -87,6 +99,17 @@ class AestheticCurator:
             vibe_score = -5
             details['vibe'] = f"Vibe Shift ({v1}->{v2}) -5"
         score += vibe_score
+
+        # C. [V11.0] 音频 DNA 亲和力 (Timbre & Groove Sync)
+        dna1 = map_dna_features(t1.get('analysis', t1))
+        dna2 = map_dna_features(t2.get('analysis', t2))
+        dna_score, dna_tags = calculate_dna_affinity(dna1, dna2)
+        
+        # 将 DNA 分数映射到审美矩阵 (权重 20%)
+        dna_bonus = dna_score * 0.2
+        score += dna_bonus
+        if dna_tags:
+            details['dna_sync'] = f"DNA Affinity ({', '.join(dna_tags)}) +{dna_bonus:.1f}"
 
         # D. 标签亲和力 (Tag Affinity) - [NEW V4.0]
         tags1 = t1.get('tags', [])

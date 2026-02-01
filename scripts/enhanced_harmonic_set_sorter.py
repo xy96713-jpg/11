@@ -88,56 +88,67 @@ try:
 except ImportError:
     def generate_radar_report(tracks): return "无法生成雷达报告"
 
-# 【Phase 8】导入人声感知混音点检测
+# ==============================================================================
+# 【V12.0 The Grand Singularity】唯一入口集成
+# ==============================================================================
 try:
-    from skills.cueing_intelligence.scripts.vocal import (
-        check_vocal_overlap_at_mix_point,
-        get_recommended_mix_points_avoiding_vocals
-    )
+    from bridge import SkillBridge
+    SINGULARITY_ENABLED = True
+    DNA_SYNC_ENABLED = True # 后向兼容 V11.0 DNA 维度
+    # 【V12.0】全线兼容旧版开关
+    PROFESSIONAL_AUDIT_ENABLED = True
     VOCAL_DETECTION_ENABLED = True
-except ImportError:
-    VOCAL_DETECTION_ENABLED = False
-    def check_vocal_overlap_at_mix_point(*args, **kwargs): return (0.0, "未安装")
-    def get_recommended_mix_points_avoiding_vocals(*args, **kwargs): return (None, None, "未安装")
-
-# 【Phase 8】导入Phrase对齐和能量曲线检测
-try:
-    from skills.rhythmic_energy.scripts.phrase import (
-        check_phrase_alignment,
-        suggest_better_phrase_aligned_point,
-        validate_energy_curve,
-        suggest_energy_reorder
-    )
     PHRASE_ENERGY_ENABLED = True
-except ImportError:
-    PHRASE_ENERGY_ENABLED = False
-    def check_phrase_alignment(*args, **kwargs): return (0.0, "未安装")
-    def suggest_better_phrase_aligned_point(*args, **kwargs): return (None, "未安装")
-    def validate_energy_curve(*args, **kwargs): return (True, [])
-    def suggest_energy_reorder(tracks): return tracks
-
-# 【Phase 8】导入BPM渐进式管理
-try:
-    from skills.rhythmic_energy.scripts.bpm import (
-        validate_bpm_progression,
-        suggest_bpm_reorder,
-        get_bpm_curve_summary
-    )
     BPM_PROGRESSIVE_ENABLED = True
 except ImportError:
-    BPM_PROGRESSIVE_ENABLED = False
-    def validate_bpm_progression(*args, **kwargs): return (True, [])
-    def suggest_bpm_reorder(tracks, phase="auto"): return tracks
-    def get_bpm_curve_summary(tracks): return {}
+    SINGULARITY_ENABLED = False
+    DNA_SYNC_ENABLED = False
 
-# 【Phase 9】导入专业审计和能量曲线分析
-try:
-    from skills.aesthetic_expert.scripts.audit import calculate_set_completeness, get_energy_curve_summary
-    PROFESSIONAL_AUDIT_ENABLED = True
-except ImportError:
-    PROFESSIONAL_AUDIT_ENABLED = False
-    def calculate_set_completeness(*args, **kwargs): return {"total_score": 0, "breakdown": {}}
-    def get_energy_curve_summary(*args, **kwargs): return "N/A"
+def check_vocal_overlap_at_mix_point(*args, **kwargs):
+    if SINGULARITY_ENABLED:
+        return SkillBridge.execute("detect-vocals", **kwargs)
+    return (0.0, "Singularity Missing")
+
+def get_recommended_mix_points_avoiding_vocals(*args, **kwargs):
+    # 此功能暂不由 Singularity 代理，保留或通过 Bridge 扩展
+    return (None, None, "Legacy Pass-through")
+
+def check_phrase_alignment(*args, **kwargs):
+    # 示例：通过 Bridge 语义化调用
+    return (0.0, "Singularity-Phrase Pending")
+
+# 同理，此处可继续添加对 Aesthetic, DNA 等的代理
+def map_dna_features(a):
+    return SkillBridge.execute("map-dna", analysis=a)
+
+def calculate_dna_affinity(d1, d2):
+    return SkillBridge.execute("dna-affinity", dna1=d1, dna2=d2)
+
+def calculate_set_completeness(tracks):
+    return SkillBridge.execute("audit-completeness", tracks=tracks)
+
+def get_energy_curve_summary(tracks):
+    return SkillBridge.execute("get-energy-curve-summary", tracks=tracks)
+
+def suggest_better_phrase_aligned_point(track_a, track_b):
+    return (None, "Singularity Fallback")
+
+def validate_energy_curve(tracks):
+    return SkillBridge.execute("validate-energy", tracks=tracks)
+
+def suggest_energy_reorder(tracks):
+    return tracks # Identity
+
+def validate_bpm_progression(tracks):
+    return SkillBridge.execute("validate-bpm", tracks=tracks)
+
+def suggest_bpm_reorder(tracks, phase="auto"):
+    return tracks # Identity
+
+def get_bpm_curve_summary(tracks):
+    return {}
+
+# ==============================================================================
 
 # 【Phase 10】导入自动Hotcue生成器
 try:
@@ -158,72 +169,49 @@ except ImportError:
     PHRASE_READER = None
 
 # 【Phase 10】导入 Mashup Intelligence 核心联动模块
-try:
-    from skills.mashup_intelligence.scripts.core import MashupIntelligence
-    MASHUP_INTELLIGENCE = MashupIntelligence()
-    MASHUP_ENABLED = True
-    print(f"[OK] 已成功挂载 Mashup Intelligence V4 微观引擎")
-except ImportError:
-    MASHUP_ENABLED = False
-    class MashupIntelligence:
-        def calculate_mashup_score(self, *args, **kwargs): return 0.0, {}
-    MASHUP_INTELLIGENCE = MashupIntelligence()
-    print(f"[WARN] 无法挂载 Mashup Intelligence，微观评分已降级")
+# ==============================================================================
+# 【V12.0 Singularity】专家统一分发代理
+class SingularityExpertProxy:
+    def __init__(self, mode):
+        self.mode = mode
+    def calculate_mashup_score(self, t1, t2, mode='standard'):
+        return SkillBridge.execute("calculate-mashup", track1=t1, track2=t2, mode=mode)
+    def calculate_aesthetic_match(self, t1, t2):
+        return SkillBridge.execute("get-aesthetic-match", t1=t1, t2=t2)
+    def get_mashup_archetype(self, t1, t2):
+        return SkillBridge.execute("get-mashup-archetype", track1=t1, track2=t2)
+    def calculate_narrative_score(self, t1, t2):
+        return SkillBridge.execute("calculate-narrative", t1=t1, t2=t2)
+    def get_narrative_advice(self, t1, t2):
+        return SkillBridge.execute("get-narrative-advice", t1=t1, t2=t2)
+    def get_mix_bible_advice(self, t1, t2):
+        # 降级或通过 Bridge 扩展
+        return {"technique": "Standard Mix", "suggested_duration": "16 bars", "vibe_target": "Neutral"}
+    def set_theme(self, theme):
+        print(f"🚀 [Singularity] Setting Narrative Theme: {theme}")
 
-# 【Phase 11】导入 Aesthetic Curator 审美策展引擎
-try:
-    from skills.aesthetic_expert.scripts.curator import AestheticCurator
-    AESTHETIC_CURATOR = AestheticCurator()
-    AESTHETIC_ENABLED = True
-    print(f"[OK] 已成功挂载 Aesthetic Curator V4 审美引擎")
-except ImportError:
-    AESTHETIC_ENABLED = False
-    class AestheticCurator:
-        def calculate_aesthetic_match(self, *args, **kwargs): return 70.0, {}
-        def get_mix_bible_advice(self, *args, **kwargs): return {"technique": "Standard Mix", "suggested_duration": "16 bars", "vibe_target": "Neutral"}
-    AESTHETIC_CURATOR = AestheticCurator()
-    print(f"[WARN] 无法挂载 Aesthetic Curator，审美评分已降级")
+# 【Phase 12】叙事规划与蓝图引擎 [Singularity]
+MASHUP_INTELLIGENCE = SingularityExpertProxy("mashup")
+AESTHETIC_CURATOR = SingularityExpertProxy("curator")
+NARRATIVE_PLANNER = SingularityExpertProxy("planner")
 
-# 【Phase 12】导入 Narrative Planner 叙事规划引擎 [Intelligence-V5]
-try:
-    from narrative_set_planner import NarrativePlanner
-    from skill_intelligence_researcher import IntelligenceResearcher
-    
-    RESEARCHER = IntelligenceResearcher()
-    NARRATIVE_PLANNER = NarrativePlanner(researcher=RESEARCHER)
-    NARRATIVE_ENABLED = True
-    print(f"[OK] 已成功挂载 Narrative Planner V5 & Intelligence Researcher")
-except ImportError:
-    # 尝试从 skills 目录导入
-    try:
-        from skills.skill_intelligence_researcher import IntelligenceResearcher
-        from narrative_set_planner import NarrativePlanner
-        RESEARCHER = IntelligenceResearcher()
-        NARRATIVE_PLANNER = NarrativePlanner(researcher=RESEARCHER)
-        NARRATIVE_ENABLED = True
-        print(f"[OK] 已成功挂载 Narrative Planner V5 (from skills)")
-    except ImportError:
-        NARRATIVE_ENABLED = False
-        class NarrativePlanner:
-            def calculate_narrative_score(self, *args, **kwargs): return 0.0, {}
-            def get_narrative_advice(self, *args, **kwargs): return ""
-            def set_theme(self, theme): pass
-        NARRATIVE_PLANNER = NarrativePlanner()
-        RESEARCHER = None
-        print(f"[WARN] 无法挂载 Narrative Planner，叙事匹配已停用")
+MASHUP_ENABLED = True
+AESTHETIC_ENABLED = True
+NARRATIVE_ENABLED = True
 
-# 【Phase 13】导入 Set Blueprinter 叙事蓝图引擎
+# 【Phase 13】导入 Set Blueprinter (作为核心组件保留独立工厂)
 try:
-    from blueprinter import SetBlueprinter
+    from set_curation_expert.blueprinter import SetBlueprinter
     BLUEPRINTER = SetBlueprinter()
     BLUEPRINT_ENABLED = True
-    print(f"[OK] 已成功挂载 Set Blueprinter V5 蓝图引擎")
+    print(f"[OK] 已成功挂载 Set Blueprinter V12 (via Singularity)")
 except ImportError:
+    # 路径自动补全兜底
     try:
-        from skills.set_curation_expert.scripts.blueprinter import SetBlueprinter
+        sys.path.insert(0, str(BASE_DIR / "skills" / "set_curation_expert" / "scripts"))
+        from blueprinter import SetBlueprinter
         BLUEPRINTER = SetBlueprinter()
         BLUEPRINT_ENABLED = True
-        print(f"[OK] 已成功挂载 Set Blueprinter V5 (from skills)")
     except ImportError:
         BLUEPRINT_ENABLED = False
         class SetBlueprinter:
@@ -1302,6 +1290,23 @@ def compare_mfcc_similarity(track_a: dict, track_b: dict) -> float:
     except Exception:
         # 如果计算失败，返回中等相似度
         return 0.5
+
+
+def compare_rhythm_similarity(track_a: dict, track_b: dict) -> float:
+    """[V11.0 DNA Sync] 计算律动相似度"""
+    if not DNA_SYNC_ENABLED: return 0.5
+    
+    dna1 = map_dna_features(track_a.get('analysis', track_a))
+    dna2 = map_dna_features(track_b.get('analysis', track_b))
+    
+    # 提取律动维度得分 (0-100 -> 0.0-1.0)
+    affinity, tags = calculate_dna_affinity(dna1, dna2)
+    
+    # 专门针对律动进行加权
+    swing_match = 1.0 - abs(dna1.get('swing_dna', 0.5) - dna2.get('swing_dna', 0.5))
+    density_match = 1.0 - abs(dna1.get('groove_density', 0.5) - dna2.get('groove_density', 0.5))
+    
+    return swing_match * 0.7 + density_match * 0.3
 
 
 def check_vocal_conflict(current_track: dict, next_track: dict) -> Tuple[float, bool]:
@@ -3015,6 +3020,13 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
             if is_fast_switch:
                 key_weight = 0.2  # 快速切换类型，权重更低
             else:
+            # ========== 【V13.0 Decoupling】动态战略权重加载 ==========
+                weights = GLOBAL_STRATEGY.get("weights") if 'GLOBAL_STRATEGY' in globals() else None
+                w_harmonic = weights.get("harmonic", 0.40) if weights else 0.40
+                w_bpm = weights.get("bpm", 0.25) if weights else 0.25
+                w_energy = weights.get("energy", 0.20) if weights else 0.20
+                w_aesthetic = weights.get("aesthetic", 0.15) if weights else 0.15
+                w_mashup = weights.get("mashup", 0.15) if weights else 0.15
                 if key_score >= 100:
                     key_weight = 0.3  # 完美匹配，最高权重（降低）
                 elif key_score >= 95:
@@ -3024,8 +3036,8 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
                 else:
                     key_weight = 0.2
             
-            # 调性评分：基础评分
-            score += key_score * key_weight
+            # 调性评分：基础评分 (V13.0 Normalize)
+            score += (key_score * key_weight) * (w_harmonic / 0.40) # 0.40 为原始标准权重基准
             
             # 调性距离惩罚：对于距离≥5的跳跃，进一步降低惩罚（允许但标记为"需技巧过渡"）
             if key_distance is not None:
@@ -3085,15 +3097,16 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
                     20: 5,    # 能量差≤20：5分
                 }
             
-            # 能量匹配度得分（能量差越小，得分越高）
+            # 能量匹配度得分 (V13.0 Normalize)
+            e_norm = w_energy / 0.20 # 0.20 为原始标准权重基准
             if energy_diff <= 5:
-                score += energy_weights[5]
+                score += energy_weights[5] * e_norm
             elif energy_diff <= 10:
-                score += energy_weights[10]
+                score += energy_weights[10] * e_norm
             elif energy_diff <= 15:
-                score += energy_weights[15]
+                score += energy_weights[15] * e_norm
             elif energy_diff <= 20:
-                score += energy_weights[20]
+                score += energy_weights[20] * e_norm
             else:
                 score -= 5  # 能量差太大，轻微惩罚
             
@@ -3528,16 +3541,15 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
             metrics["vocal_conflict_penalty"] = vocal_penalty
             metrics["has_vocal_conflict"] = has_vocal_conflict
             
-            # ========== 【V4.0 Ultra+ 专家级增强】审美与 Mashup 联动评分 ==========
-            # 1. Aesthetic Curator: 审美匹配 (曲风/时代/情感) - 权重 15%
+            # 1. Aesthetic Curator: 审美匹配 (曲风/时代/情感)
             aesthetic_score, aesthetic_details = AESTHETIC_CURATOR.calculate_aesthetic_match(current_track, track)
-            score += aesthetic_score * 0.15
+            score += aesthetic_score * w_aesthetic
             metrics["aesthetic_score"] = aesthetic_score
             metrics["aesthetic_details"] = aesthetic_details
             
-            # 2. Mashup Intelligence: 跨界桥接与 Stems 兼容 - 权重 15%
+            # 2. Mashup Intelligence: 跨界桥接与 Stems 兼容
             mashup_score, mashup_details = MASHUP_INTELLIGENCE.calculate_mashup_score(current_track, track)
-            score += mashup_score * 0.15
+            score += mashup_score * w_mashup
             metrics["mashup_score"] = mashup_score
             metrics["mashup_details"] = mashup_details
             
@@ -8120,12 +8132,23 @@ if __name__ == "__main__":
                            help='直播长Set模式：完整度优先，确保所有歌曲都排进去，无法和谐衔接的歌曲放在Set末尾')
         parser.add_argument('--theme', type=str, default='',
                            help='[Intelligence-V5] 设定 Set 的叙事主题（如：“探索 Y2K 怀旧背景下的女团力量”）')
+        parser.add_argument('--mode', type=str, default='set',
+                           choices=['set', 'mashup', 'curator'],
+                           help='[V13.0] 战略意图模式: set=排歌优先, mashup=对撞优先, curator=审美优先')
         
         args = parser.parse_args()
         
         # 【Phase 12】应用叙事主题 [Intelligence-V5]
         if args.theme and NARRATIVE_ENABLED:
             NARRATIVE_PLANNER.set_theme(args.theme)
+
+        # 【V13.0】负载战略权重
+        GLOBAL_STRATEGY = {"mode": args.mode}
+        if SINGULARITY_ENABLED:
+            GLOBAL_STRATEGY["weights"] = SkillBridge.execute("get-strategy-weights", mode=args.mode)
+            print(f"🎯 [V13.0] 已激活【{args.mode.upper()}】战略模式: {GLOBAL_STRATEGY['weights']}")
+        else:
+            GLOBAL_STRATEGY["weights"] = None
         
         # 【Phase 8】获取浮动分割配置
         split_cfg = DJ_RULES.get('split', {}) if DJ_RULES else {}

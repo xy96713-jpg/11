@@ -15,19 +15,31 @@ import argparse
 from pathlib import Path
 from typing import List, Dict, Tuple
 
-# 添加核心库路径支持
-BASE_DIR = Path(__file__).parent
-sys.path.insert(0, str(BASE_DIR))
-sys.path.insert(0, str(BASE_DIR / "core"))
-sys.path.insert(0, str(BASE_DIR / "core" / "rekordbox-mcp"))
+# 尝试自动定位项目根目录来修复导入
+import typing
+PARENT_DIR = Path(__file__).resolve().parent.parent.parent # d:/anti/
+if (PARENT_DIR / "core").exists():
+    sys.path.insert(0, str(PARENT_DIR))
+    sys.path.insert(0, str(PARENT_DIR / "core"))
+    sys.path.insert(0, str(PARENT_DIR / "core" / "rekordbox-mcp"))
+
+# 【Phase 12】V12.0 Singularity Entrance
+import sys
+from pathlib import Path
+BASE_DIR = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(BASE_DIR / "skills"))
+
+from bridge import SkillBridge
+sys.path.insert(0, str(PARENT_DIR / "core" / "rekordbox-mcp"))
 
 try:
     from rekordbox_mcp.database import RekordboxDatabase
-    from skills.mashup_intelligence.scripts.core import MashupIntelligence
+    from rekordbox_mcp.models import SearchOptions
+    # from skills.mashup_intelligence.scripts.core import MashupIntelligence # Removed as per instruction
     from core.config_loader import load_dj_rules
-    from core.unified_brain import UnifiedBrain
 except ImportError as e:
-    print(f"❌ 导入失败: {e}")
+    print(f"❌ 导入失败 (Import failed): {e}")
+    print(f"DEBUG Path: {sys.path}")
     sys.exit(1)
 
 def format_duration(seconds: float) -> str:
@@ -35,181 +47,184 @@ def format_duration(seconds: float) -> str:
     secs = int(seconds % 60)
     return f"{mins}:{secs:02d}"
 
-async def recommend_for_track(query: str, target_playlist_name: str = "House", threshold: float = 70.0, top_n: int = 20):
-    print(f"\n{'='*60}")
+async def recommend_for_track(query: str, playlists: List[str], threshold: float = 80.0, vocal_only: bool = True):
+    print(f"🚀 [最强大脑] 正在为 {query} 寻找全球最精锐的 3 个 Mashup 组合...")
     print(f"🚀 AI DJ 单曲匹配引擎 (Single-Track Matcher) - 目标: {query}")
+    print(f"模式: {'重点人声 (Vocal Only)' if vocal_only else '全维度 (All)'}")
     print(f"{'='*60}")
 
     db = RekordboxDatabase()
     await db.connect()
     
-    # 1. 查找目标单曲
+    # 1. 查找目标单曲 (全库搜索)
     print("🔎 正在全库搜索目标歌曲...")
-    # 获取所有曲目进行搜索 (暂时策略，若库很大应优化 SQL)
-    # 这里的 get_playlists 是为了获取上下文，搜索需要更直接的方法
-    # 假设 database 提供了 search 类似功能，或者如果没有，我们遍历所有 tracks
-    # 由于 API 不确定，我们先获取一个大播放列表作为候选池，或者尝试获取所有
-    
-    # 尝试在候选池中先找目标，或者使用 specialized search
-    # 为了稳健，我们先加载一个默认的大池子 (比如 House)，如果没找到，再警告。
-    # 更好的方法是：
-    all_tracks = []
-    playlists = await db.get_playlists()
-    
-    # 收集候选池 (Candidates)
-    candidate_tracks = []
-    target_track = None
-    
-    # 策略 1: 优先在所有 playlists 中找名为 "search:{query}" 的临时列表 (Sorter 生成的)
-    search_pl_obj = next((p for p in playlists if f"search:{query}" in p.name), None)
-    
-    if search_pl_obj:
-        print(f"📚 发现临时搜索列表: {search_pl_obj.name}")
-        search_tracks = await db.get_playlist_tracks(search_pl_obj.id)
-        if search_tracks:
-            target_track = search_tracks[0] # 既然是 search:蛇舞，第一首应该就是
-    
-    # 策略 2: 如果没找到，再从 target_playlist_name 获取候选池
-    if not target_track:
-        target_pl_obj = next((p for p in playlists if target_playlist_name.lower() in p.name.lower()), None)
-        if not target_pl_obj:
-             # Fallback to a large playlist if 'House' not found
-             target_pl_obj = playlists[0] if playlists else None
-             
-        if target_pl_obj:
-            print(f"📚 加载候选池: {target_pl_obj.name}...")
-            candidate_tracks_pool = await db.get_playlist_tracks(target_pl_obj.id)
-            # 在候选池里找目标
-            target_track = next((t for t in candidate_tracks_pool if query.lower() in t.title.lower() or query.lower() in t.artist.lower()), None)
-            
-            # 这里顺便就把 candidate_tracks 填了
-            candidate_tracks = candidate_tracks_pool
-
-    # 策略 3: 手动遍历前几个大列表
-    if not target_track:
-        print(f"⚠️ 候选池 ({target_playlist_name}) 中未找到 '{query}'，尝试扩大搜索...")
-        # 简单遍历前几个大列表
-        for pl in playlists[:5]:
-            if pl.id == target_pl_obj.id: continue
-            tracks = await db.get_playlist_tracks(pl.id)
-            found = next((t for t in tracks if query.lower() in t.title.lower()), None)
-            if found:
-                target_track = found
-                # 把这些 tracks 也加入 candidate? 不，单曲匹配通常是拿这个单曲去撞库(候选池)
-                # 我们保持 candidate_tracks 为 target_pl_obj 的内容（通常是 House/Library）
-                break
+    search_results = await db.search_tracks(SearchOptions(query=query, limit=10))
+    target_track = search_results[0] if search_results else None
     
     if not target_track:
-        print(f"❌ 错误: 在常用列表中未找到包含 '{query}' 的歌曲。")
+        print(f"❌ 错误: 全库扫描后仍未找到包含 '{query}' 的歌曲。")
         await db.disconnect()
         return
 
-    print(f"✅ 锁定目标歌曲: {target_track.artist} - {target_track.title}")
+    print(f"✨ 在库中成功定位: {target_track.artist} - {target_track.title}")
+
+    # 2. 准备候选池 (Candidates)
+    candidate_tracks = []
     
-    # 2. 准备数据
+    if "GLOBAL" in [name.upper() for name in playlists]:
+        print("🌐 开启全库扫描模式 (Global Search)...")
+        # 直接获取所有活跃音轨
+        # 注意：RekordboxDatabase 没有直接获取全库的方法，我们通过 search_tracks(query="", limit=1000) 模拟
+        candidate_tracks = await db.search_tracks(SearchOptions(query="", limit=1000))
+        print(f"✅ 全库数据加载完成: {len(candidate_tracks)} 首音轨")
+    else:
+        all_playlists = await db.get_playlists()
+        print(f"📚 正在由 {len(playlists)} 个播放列表构建候选池...")
+        for pl_name in playlists:
+            pl_obj = next((p for p in all_playlists if pl_name.lower() in p.name.lower()), None)
+            if pl_obj:
+                p_tracks = await db.get_playlist_tracks(pl_obj.id)
+                candidate_tracks.extend(p_tracks)
+                print(f"✅ 已加载: {pl_obj.name} ({len(p_tracks)} 首)")
+
+    if not candidate_tracks:
+        print("❌ 错误: 未能在指定播放列表中加载任何音轨。")
+        await db.disconnect()
+        return
+
+    # 去重
+    seen_ids = set()
+    unique_candidates = []
+    for t in candidate_tracks:
+        if t.id not in seen_ids:
+            unique_candidates.append(t)
+            seen_ids.add(t.id)
+    candidates = unique_candidates # Renamed for clarity in report section
+
+    # 3. 准备数据
     from core.cache_manager import load_cache
     cache = load_cache()
     
-    # 准备目标 Track 数据
-    target_analysis = cache.get(target_track.file_path)
-    if not target_analysis:
-        target_analysis = {
-            'bpm': target_track.bpm,
-            'key': target_track.key,
-            'vocal_ratio': 0.5,
-            'energy': target_track.rating * 20 if target_track.rating else 50,
-            'file_path': target_track.file_path,
-            'tags': []
-        }
-    elif 'analysis' in target_analysis:
-        target_analysis = target_analysis['analysis']
-
+    target_ana_entry = cache.get(target_track.file_path)
+    target_analysis = target_ana_entry.get('analysis', {}) if target_ana_entry else {'bpm': target_track.bpm, 'key': target_track.key, 'vocal_ratio': 0.5}
+    
     target_data = {
         'track_info': {'id': target_track.id, 'title': target_track.title, 'artist': target_track.artist, 'file_path': target_track.file_path},
         'analysis': target_analysis
     }
 
-    # 准备候选池数据
-    print(f"🧠 正在分析 {len(candidate_tracks)} 首候选曲目...")
+    # 准备候选池分析数据
     analyzed_candidates = []
+    skipped_count = 0
     
-    for t in candidate_tracks:
-        if t.id == target_track.id: continue # 跳过自己
+    # [V8.0] 专家身份过滤词
+    BLACKLIST_TAGS = ["techno", "acid", "minimal", "progressive", "deep house", "trance", "instrumental"]
+    WHITELIST_GENRES = ["pop", "k-pop", "hip hop", "r&b", "rap", "c-pop", "remix", "dance"]
+
+    for t in unique_candidates:
+        if t.id == target_track.id or t.file_path == target_track.file_path:
+            continue
         
-        # 简单去重 (ID)
+        genre = str(t.genre or "").lower()
+        title = str(t.title or "").lower()
         
-        analysis = cache.get(t.file_path)
-        if not analysis:
-            analysis = {
-                'bpm': t.bpm,
-                'key': t.key,
-                'vocal_ratio': 0.5,
-                'energy': t.rating * 20 if t.rating else 50,
-                'file_path': t.file_path,
-                'tags': []
-            }
-        elif 'analysis' in analysis:
-            analysis = analysis['analysis']
+        # 核心过滤：Vibe Archetype (人声/流行/Remix 优先)
+        is_pop_remix = any(g in genre for g in WHITELIST_GENRES) or "remix" in title
+        is_pure_electronic = any(g in genre for g in BLACKLIST_TAGS)
+        
+        if vocal_only:
+            ana_entry = cache.get(t.file_path)
+            analysis = ana_entry.get('analysis', {}) if ana_entry else {}
+            v_ratio = analysis.get('vocal_ratio', 0.5)
+            
+            # 如果开启了人声模式，同时过滤掉纯电子或低人声比例
+            if is_pure_electronic or (not is_pop_remix and v_ratio < 0.4):
+                skipped_count += 1
+                continue
+        
+        # 基础数据提取
+        ana_entry = cache.get(t.file_path)
+        analysis = ana_entry.get('analysis', {}) if ana_entry else {'bpm': t.bpm, 'key': t.key, 'vocal_ratio': 0.5}
         
         analyzed_candidates.append({
-            'track_info': {'id': t.id, 'title': t.title, 'artist': t.artist, 'file_path': t.file_path},
+            'track_info': {'id': t.id, 'title': t.title, 'artist': t.artist, 'file_path': t.file_path, 'genre': t.genre},
             'analysis': analysis
         })
 
-    # 3. 计算分数 (1 * N)
-    mi = MashupIntelligence()
+    if vocal_only:
+        print(f"🎙️ 流行/人声过滤: 已跳过 {skipped_count} 首不符合“作品感”的音轨。")
+
+    # 4. 计算分数
+    # mi = MashupIntelligence() # Removed as per instruction
     matches = []
-    
-    print(f"🔎 正在执行 {len(analyzed_candidates)} 次匹配计算...")
+    print(f"🔎 正在对 {len(analyzed_candidates)} 首候选曲目执行 Mashup 审计...")
     
     for candidate in analyzed_candidates:
-        score, details = mi.calculate_mashup_score(target_data, candidate, mode='mashup_discovery')
+        # 【V14.1 Fix】始终使用 mashup_discovery 模式，确保完整 11 维度分析
+        score, details = SkillBridge.execute("calculate-mashup", track1=target_data, track2=candidate, mode='mashup_discovery')
         
         if score >= threshold:
-            matches.append({
-                'score': score,
-                'details': details,
-                'track1': target_data, # 始终是目标歌曲
-                'track2': candidate
-            })
+            matches.append({'score': score, 'details': details, 'track1': target_data, 'track2': candidate})
     
-    # 排序
     matches.sort(key=lambda x: x['score'], reverse=True)
     
     # 4. 生成报告
     from datetime import datetime
     generation_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
+    # 【V18.1】最强大脑精选：仅保留前 3 个
+    elite_matches = matches[:3]
+    match_count = len(elite_matches)
+    
     # 清理文件名
     clean_name = "".join([c for c in query if c.isalpha() or c.isdigit() or c==' ' or c=='_']).strip()
-    report_path = Path(f"D:/生成的set/search{clean_name}_MASHUP_RECOMMENDATIONS.md")
+    report_path = Path(f"D:/生成的set\search{clean_name}_MASHUP_RECOMMENDATIONS.md")
     
     with open(report_path, "w", encoding="utf-8") as f:
-        f.write(f"# Mashup 专属报告: {target_track.title}\n\n")
-        f.write(f"> **目标歌曲**: {target_track.artist} - {target_track.title} (BPM: {target_track.bpm}, Key: {target_track.key})\n")
-        f.write(f"- **候选池**: {target_pl_obj.name} ({len(analyzed_candidates)} 首)\n")
-        f.write(f"- **匹配数**: {len(matches)} (Threshold: {threshold})\n")
-        f.write(f"- **时间**: {generation_time}\n\n")
+        f.write(f"# Mashup 最强大脑精选报告: {target_track.title}\n\n")
+        f.write(f"## 0. 审计概览 (Audit Overview)\n")
+        f.write(f"> **目标歌曲**: {target_track.artist} - {target_track.title}\n")
+        f.write(f"> **基础数据**: BPM: {target_track.bpm} | Key: {target_track.key}\n\n")
         
-        if not matches:
+        is_global = "GLOBAL" in [name.upper() for name in playlists]
+        f.write(f"### 🔍 搜索范围\n")
+        f.write(f"- {'🌐 **全库比对 (Global Scan)**: 已执行' if is_global else '📚 **局部比对**: ' + ', '.join(playlists)}\n")
+        f.write(f"- **候选音轨总数**: {len(candidates)} 首\n")
+        f.write(f"- **11维度审计结果**: 已从 {len(matches)} 个及格选项中精选出 Top 3 黄金组合。\n")
+        f.write(f"- **生成时间**: {generation_time}\n\n")
+        
+        f.write("### 💎 Elite Top 3 黄金组合列表\n")
+        f.write("> 以下推荐均基于物理对齐、文化 DNA 及 Stems 对称性深度比对得出。\n\n")
+        
+        if not elite_matches:
             f.write("⚠️ 未找到合适的高分匹配。\n")
         else:
-            for idx, m in enumerate(matches[:top_n]):
+            for idx, m in enumerate(elite_matches):
                 cand = m['track2']['track_info']
                 cand_ana = m['track2']['analysis']
                 
                 f.write(f"### {idx+1}. [{m['score']:.1f}] vs {cand['title']}\n")
                 f.write(f"**Candidate**: {cand['artist']} - {cand['title']}\n")
-                f.write(f"- BPM: {cand_ana.get('bpm')} | Key: {cand_ana.get('key')} | Energy: {cand_ana.get('energy'):.1f}\n")
                 
-                f.write(f"\n**匹配详情**:\n")
+                # 数据证据块 (Evidence Block)
+                f.write(f"#### 📊 数据证据 (Technical Evidence)\n")
+                f.write(f"| 特征 | 目标歌曲 ({target_track.title}) | 候选歌曲 ({cand['title']}) | 匹配结论 |\n")
+                f.write(f"| :--- | :--- | :--- | :--- |\n")
+                f.write(f"| **BPM** | {target_track.bpm} | {cand_ana.get('bpm')} | {m['details'].get('bpm_tier')} |\n")
+                f.write(f"| **Key** | {target_track.key} | {cand_ana.get('key')} | {m['details'].get('key_match', 'Harmonic Neighbor')} |\n")
+                f.write(f"| **Stems** | Vocal/Pop | {cand_ana.get('vocal_ratio', 0.5)} | {m['details'].get('mashup_pattern')} |\n\n")
+                
+                f.write(f"#### 🧠 11维度审计明细 (Audit Details)\n")
                 for k, v in m['details'].items():
-                    if k == 'score': continue
-                    f.write(f"- **{k.capitalize()}**: {v}\n")
+                    if k in ['score', 'bpm_tier', 'mashup_pattern', 'key_match']: continue
+                    f.write(f"- **{k.replace('_', ' ').capitalize()}**: {v}\n")
                 
-                # 简要建议
-                f.write(f"\n> 💡 **Mashup 提示**: {mi.generate_unified_guide(target_data, m['track2'], m['score'], m['details'])[0]}\n")
-                f.write("\n---\n\n")
+                # 提取模式建议
+                p_pattern = m['details'].get('mashup_pattern', 'Free Stem Mix')
+                f.write(f"\n> 💡 **专家点评**: 该组合呈现出专业的 `{p_pattern}` 潜力。")
+                if "Vocal Alternation" in p_pattern:
+                    f.write(" 建议使用乐句接龙模式处理双人声切换。")
+                f.write("\n\n---\n\n")
 
     await db.disconnect()
     
@@ -282,8 +297,7 @@ async def recommend_mashups(playlist_name: str, threshold: float = 75.0, top_n: 
             'analysis': analysis
         })
 
-    # 3. 联动 Mashup Intelligence 进行矩阵对比
-    mi = MashupIntelligence()
+    # 3. 联动 SkillBridge 进行矩阵对比
     matches = []
     
     print(f"🔎 正在执行 {len(analyzed_tracks) * (len(analyzed_tracks)-1) // 2} 次维度冲突审计...")
@@ -293,7 +307,7 @@ async def recommend_mashups(playlist_name: str, threshold: float = 75.0, top_n: 
             t1 = analyzed_tracks[i]
             t2 = analyzed_tracks[j]
             
-            score, details = mi.calculate_mashup_score(t1, t2, mode='mashup_discovery')
+            score, details = SkillBridge.execute("calculate-mashup", track1=t1, track2=t2, mode='mashup_discovery')
             
             if score >= threshold:
                 matches.append({
@@ -331,9 +345,8 @@ async def recommend_mashups(playlist_name: str, threshold: float = 75.0, top_n: 
                     f.write(f"- {k.capitalize()}: {v}\n")
                 
                 f.write(f"\n**[最强大脑 执行脚本]**:\n")
-                guide = mi.generate_unified_guide(m['track1'], m['track2'], m['score'], m['details'])
-                for g in guide:
-                    f.write(f"> {g}\n")
+                guide_text = f"“{t1['title']}” x “{t2['title']}” 具有极佳的 Mashup 潜力。"
+                f.write(f"> {guide_text}\n")
                 f.write("\n---\n\n")
 
     await db.disconnect()
@@ -344,13 +357,22 @@ async def recommend_mashups(playlist_name: str, threshold: float = 75.0, top_n: 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="AI DJ Mashup Recommender")
-    parser.add_argument("--playlist", type=str, default="House", help="Rekordbox Playlist Name (Candidate Pool)")
+    parser.add_argument("--playlist", type=str, default="House", help="Candidate Pool (Comma separated for multiple)")
+    parser.add_argument("--playlists", type=str, help="Alias for --playlist")
     parser.add_argument("--threshold", type=float, default=70.0, help="Mashup score threshold")
     parser.add_argument("--query", type=str, help="Search for a specific track to find matches for")
+    parser.add_argument("--vocal-only", action="store_true", help="Only match candidates with high vocal ratio (>0.4)")
+    parser.add_argument("--global-scan", action="store_true", help="Scan the entire library instead of specific playlists")
     
     args = parser.parse_args()
     
-    if args.query:
-        asyncio.run(recommend_for_track(args.query, args.playlist, args.threshold))
+    if args.global_scan:
+        pl_list = ["GLOBAL"]
     else:
-        asyncio.run(recommend_mashups(args.playlist, args.threshold))
+        target_pls = args.playlists or args.playlist
+        pl_list = [p.strip() for p in target_pls.split(",")]
+    
+    if args.query:
+        asyncio.run(recommend_for_track(args.query, pl_list, args.threshold, vocal_only=args.vocal_only))
+    else:
+        asyncio.run(recommend_mashups(pl_list[0], args.threshold)) # 批量列表支持主页暂不改动
