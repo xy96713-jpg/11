@@ -16,7 +16,7 @@ def clean_filename(text):
 def download_and_search(query, filename=None, video_id=None):
     # 清理搜索词，去除 BOM 和多余空格
     query = query.strip().replace("\ufeff", "")
-    output_dir = r"D:\song\Final_Music_Official"
+    output_dir = r"D:\song"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
