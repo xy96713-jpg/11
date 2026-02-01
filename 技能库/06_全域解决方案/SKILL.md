@@ -12,48 +12,50 @@ triggers:
 # 🧠 全域解决方案架构师 (Universal Solutions Architect)
 
 > **🔴 核心激活指令 (Activation Command)**
-> *   `"Solve: [你的需求]"`
-> *   `"给一个 [X] 的全盘解决方案"`
-> *   `"对比分析一下 [A] 和 [B] 并推荐"`
+> *   `"Solve: [你的需求]"` (例: "Solve: 怎么实现 react 粒子动画")
 
-## 🛡️ 核心协议 (The Protocol)
-当此技能被激活时，Agent **必须** 严格遵循以下三步走流程，严禁直接给出简单链接。
+## 🛡️ 标准作业程序 (SOP: Standard Operating Procedure)
 
-### 第一阶段：全域侦察 (Phase 1: Omni-Scan)
-同时调用多种搜索能力，确保信息源的多样性：
-1.  **Codebase Scan**: 使用 `search_web` 或 GitHub API 查找现有开源项目 (Starts > 200)。
-2.  **Skill Scan**: 查找 MCP 市场是否有现成 Agent 能力。
-3.  **Knowledge Scan**: 搜索技术博客、Reddit/StackOverflow 讨论，获取真实评价。
+当接收到 `Solve` 指令时，Agent 必须严格执行以下 **“搜索三位一体”** 工作流：
 
-### 第二阶段：评估矩阵 (Phase 2: Assessment Matrix)
-**必须**以表格形式输出对比分析，包含以下维度：
-*   **活跃度 (Vitality)**: 上次更新时间、社区热度。
-*   **复杂度 (Complexity)**: 接入成本 (Low/Med/High)。
-*   **适用性 (Fit)**: 与用户当前技术栈的兼容程度。
+### 第一阶段：全域侦察 (Phase 1: The Search Triad)
+必须按顺序执行以下三次独立搜索，不可跳过：
 
-| 方案选项 | 核心优势 | 潜在风险 | 推荐指数 (1-10) |
-| :--- | :--- | :--- | :--- |
-| **Option A** | ... | ... | ⭐⭐⭐ |
-| **Option B** | ... | ... | ⭐⭐⭐⭐⭐ |
+#### 1. 🧬 MCP Skill 扫描 (必选)
+*   **目标**：检查是否有现成的 Agent 技能工具。
+*   **执行动作**：调用 `npx skills find [关键词]`
+*   **规范**：必须访问 `skills.sh` 生态，寻找可以直接 install 的“轮子”。
 
-### 第三阶段：终极方案 (Phase 3: The Solution)
-基于评估结果，给出**唯一**的最佳推荐，并生成实施路线图 (Roadmap)：
-1.  **Quick Start**: 一行安装命令。
-2.  **Architecture**: 简单的集成架构图。
-3.  **Next Step**: 第一步该做什么。
+#### 2. 🐙 GitHub 代码库扫描 (必选)
+*   **目标**：寻找高星开源项目。
+*   **执行动作**：
+    *   Query: `site:github.com [关键词] stars:>500`
+    *   Focus: 优先看 README 和最近 Commit 时间。
+
+#### 3. 📚 最佳实践扫描 (必选)
+*   **目标**：获取社区评价与理论基础。
+*   **执行动作**：Google Search `[关键词] best practices 2024` 或 `[关键词] vs alternatives`。
 
 ---
 
-## 📝 示例 (Example)
+### 第二阶段：评估矩阵 (Phase 2: Assessment Matrix)
+基于上述侦察结果，构建对比表格：
 
-**User**: "Solve: 怎么给网站加一个高性能的 3D 地球？"
+| 维度 | 方案 A (MCP/Skill) | 方案 B (GitHub Repo) | 方案 C (原生开发) |
+| :--- | :--- | :--- | :--- |
+| **部署成本** | `npx skills add` (极低) | Clone & Build (中) | From Scratch (高) |
+| **灵活性** | 固定功能 | 高度可配 | 完全掌控 |
+| **维护度** | 官方维护 | 社区维护 | 自行维护 |
+| **推荐分** | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐ |
 
-**Agent Response**:
-1.  **侦察**: 发现了 `three.js`, `react-globe.gl`, `cobe` 三个库。
-2.  **评估**: 
-    *   `three.js`: 太底层，开发慢。
-    *   `react-globe.gl`: 功能全，但包体积大。
-    *   `cobe`: 只有 5kb，极其轻量，性能无敌。
-3.  **方案**: **强烈推荐 COBE**。
-    *   安装: `npm install cobe`
-    *   代码: (附带一段初始化代码)
+---
+
+### 第三阶段：终极方案 (Phase 3: The Verdict)
+给出**唯一**的决策建议：
+*   **If you want speed**: 选择方案 A。
+*   **If you want control**: 选择方案 B。
+*   **My Recommendation**: 我建议 [X]，因为...
+
+### 附录：实施路线 (Execution Roadmap)
+1.  **Step 1**: Run `...`
+2.  **Step 2**: Config `...`
