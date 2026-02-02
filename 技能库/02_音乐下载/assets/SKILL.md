@@ -15,8 +15,6 @@ description: 全自动音乐下载专家。支持“给歌名即下载”，自�
 - “下载 [歌名]”
 - “帮我找一下 [歌名] 的高音质版本”
 - “下这首歌，要带封面的”
-- **针对截图触发 (下载)**：用户发送包含歌曲信息的截图（如播放列表、单曲封面）并附言“下载”时激活逻辑识别并提取歌名。
-- **针对截图触发 (补全封面)**：当用户发送截图并说“补全封面”时，AI 提取歌曲信息，优先从网易云/iTunes 等官方音乐平台检索 1:1 高清封面并嵌入本地对应的 MP3 文件。
 
 ---
 
@@ -27,23 +25,26 @@ description: 全自动音乐下载专家。支持“给歌名即下载”，自�
 - **比特率**：320kbps (CBR) / Best Available
 - **来源**：YouTube Music / YouTube High Quality Audio
 
-### B. 视觉规范 (Cover Art Protocol - V5.4 Native)
-- **嵌入版本**：**必须**强制使用 **ID3v2.3**（Windows 资源管理器兼容之王）。
-- **描述符 (Desc)**：APIC 帧描述符必须设为 **`'Cover'`**，否则 Windows 预览缓存可能无法抓取。
-- **裁切逻辑**：**强制正方形 (1:1)** 中心裁切，分辨率推荐 **1000x1000**。
-- **清洗协议**：写入前必须全量擦除旧标签 (`ID3.delete()`)，彻底杜绝 APE 或 v2.4 标签导致的灰白占位符。
+### B. 视觉规范 (Cover Art Protocol)
+- **嵌入方式**：物理写入 ID3 `APIC` 帧（确保离线可用）。
+- **裁切逻辑**：**强制正方形 (1:1)** 中心裁切。
+- **意义**：防止在 CDJ 或车载屏幕上显示黑边或拉伸。
 
 ### C. 路径规范
-- **下载仓库**：`D:\song`
+- **下载仓库**：`D:\song\Final_Music_Official`
 - **命名建议**：推荐使用 `Artist_Title` 格式，避免空格和中文乱码（虽然脚本支持中文）。
 
 ---
 
 ## 3. 调用协议
-脚本路径：`D:\anti\技能库\02_音乐下载\assets\scripts\download_and_tag.py`
-修复脚本：`D:\anti\技能库\02_音乐下载\assets\scripts\fix_covers.py`
+### 基础调用 (SoundCloud 专用):
+当传入 SoundCloud URL 时，系统会自动调用底层的 `soundcloud_agent.py` 进行并行下载与封面注入。
 
-### 基础调用：
+```bash
+python scripts/download_and_tag.py "https://soundcloud.com/..."
+```
+
+### 基础调用 (通用搜索):
 ```bash
 python scripts/download_and_tag.py "周杰伦 稻香"
 ```

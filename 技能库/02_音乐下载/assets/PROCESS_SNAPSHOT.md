@@ -6,14 +6,11 @@
 ## 🌟 Core Strategy
 1.  **Source Restriction**:
     *   Strictly block `youtube` extractors in `yt-dlp`.
-    *   Prioritize `SoundCloud` (SC) and `NetEase` (163).
-    *   *Future*: Integrate `Spotify` via `spotDL` (configured with `--audio soundcloud bandcamp`).
-2.  **Duration Targeting**:
-    *   Use `scsearch` with duration filters to avoid remixes/mashups.
-    *   Manual ID injection for tricky tracks (e.g., S.H.E 4:26 version).
-3.  **Metadata & Compatibility**:
-    *   **CRITICAL**: Use **ID3 v2.3** for Windows Explorer compatibility (v2.4 covers often fail to verify/show).
-    *   Source `1000x1000` covers from iTunes API (`artworkUrl100` -> `1000x1000bb`).
+    *   **SoundCloud (SC)**: 仅允许通过 `soundcloud_agent.py` 及其模块化链进行下载。
+    *   **NetEase (163)**: 保持原有逻辑。
+2.  **Modular Chain**:
+    *   `download_and_tag.py` -> `soundcloud_agent.py` -> `ultra_fast_download.py`
+    *   强制并行下载、正方形封面裁剪与 ID3 v2.3 写入。
 
 ## 📂 Key Scripts (Current State)
 
