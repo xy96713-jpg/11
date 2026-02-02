@@ -37,9 +37,14 @@ description: 全自动音乐下载专家。支持“给歌名即下载”，自�
 ---
 
 ## 3. 调用协议
-脚本路径：`D:\anti\skills\music_download_expert\scripts\download_and_tag.py`
+### 基础调用 (SoundCloud 专用):
+当传入 SoundCloud URL 时，系统会自动调用底层的 `soundcloud_agent.py` 进行并行下载与封面注入。
 
-### 基础调用：
+```bash
+python scripts/download_and_tag.py "https://soundcloud.com/..."
+```
+
+### 基础调用 (通用搜索):
 ```bash
 python scripts/download_and_tag.py "周杰伦 稻香"
 ```

@@ -18,41 +18,44 @@ description: 全自动音乐下载专家。支持“给歌名即下载”，自�
 
 ---
 
-## 2. 交付标准 (The V5.4 Standard)
+## 2. 交付标准 (The V8.3 Standard)
 
 ### A. 音质规范
 - **默认格式**：MP3
-- **比特率**：320kbps (CBR) / Best Available
-- **来源**：YouTube Music / YouTube High Quality Audio
+- **比特率**：320kbps (CBR)
+- **SoundCloud (优先)**：强制通过 `SoundCloud Agent` 专线下载，确保原始高音质。
+- **YouTube (兜底)**：仅当通用搜索触发时使用，通过 `yt-dlp` 转换为最高品质 MP3。
 
 ### B. 视觉规范 (Cover Art Protocol)
-- **嵌入方式**：物理写入 ID3 `APIC` 帧（确保离线可用）。
-- **裁切逻辑**：**强制正方形 (1:1)** 中心裁切。
-- **意义**：防止在 CDJ 或车载屏幕上显示黑边或拉伸。
+- **嵌入方式**：物理写入 **ID3 v2.3** 帧（最稳兼容 Windows/Rekordbox）。
+- **来源逻辑**：
+  - **SoundCloud**: 提取官方 `original` 级别高清封面。
+  - **通用模式**: 优先检索 iTunes API (1000x1000)，兜底 MusicBrainz。
+- **裁切逻辑**：强制正方形 (1:1) 中心裁切，拒绝拉伸。
 
 ### C. 路径规范
-- **下载仓库**：`D:\song\Final_Music_Official`
-- **命名建议**：推荐使用 `Artist_Title` 格式，避免空格和中文乱码（虽然脚本支持中文）。
+- **下载仓库**：`D:\song` (标准入口)
+- **整理脚本**: `D:\anti\技能库\02_音乐下载\scripts\download_and_tag.py`
 
 ---
 
 ## 3. 调用协议
-脚本路径：`D:\anti\skills\music_download_expert\scripts\download_and_tag.py`
 
-### 基础调用：
+### SoundCloud 专线 (自动识别):
+系统会自动识别 SoundCloud 链接并挂载 `soundcloud_agent.py`。
 ```bash
-python scripts/download_and_tag.py "周杰伦 稻香"
+python scripts/download_and_tag.py "https://soundcloud.com/..."
 ```
 
-### 指定文件名调用：
+### 通用搜索下载:
 ```bash
-python scripts/download_and_tag.py "NewJeans Ditto audio" --name "NewJeans_Ditto"
+python scripts/download_and_tag.py "歌名 歌手"
 ```
 
 ---
 
-## 4. 依赖说明
-- `yt-dlp`: 核心下载引擎
-- `mutagen`: ID3 标签手术刀
-- `Pillow (PIL)`: 图像处理与裁剪
-- `ffmpeg`: 必须在系统 PATH 中可用（已确认环境具备）
+## 4. 核心组件 (Modular Core)
+- `soundcloud_agent.py`: 专线调度中心。
+- `ultra_fast_download.py`: 并行加速与封入引擎。
+- `download_mp3_with_cover.py`: 兼容性下载保障。
+- `download_and_tag.py`: 统一入口。
