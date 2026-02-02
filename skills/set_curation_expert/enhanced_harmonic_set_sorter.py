@@ -227,7 +227,11 @@ except ImportError:
         BLUEPRINTER = SetBlueprinter()
         print(f"[WARN] 无法挂载 Set Blueprinter，将使用硬编码阶段")
 
-CACHE_FILE = Path(__file__).parent / "song_analysis_cache.json"
+try:
+    from core.cache_manager import DEFAULT_CACHE_PATH
+    CACHE_FILE = Path(DEFAULT_CACHE_PATH)
+except ImportError:
+    CACHE_FILE = Path(__file__).parent / "song_analysis_cache.json"
 # 分析器版本号（用于缓存失效控制）
 ANALYZER_VERSION = "v1.2-pro-dimensions"
 # 模型版本字典（用于缓存失效控制）
@@ -7741,11 +7745,23 @@ def find_stems_mashup_pairs(playlist_name: str, min_score: float = 75.0, max_res
             cache_by_path[fp] = data.get('analysis', {})
     
     # 加载歌曲
-    db = Rekordbox6Database()
-    # 1. 加载歌曲
-    tracks = []
-    
-            continue
+    # 获取播放列表内容
+    playlist = db.session.execute(text("SELECT * FROM DJMDPlaylist WHERE Name = :name"), {"name": playlist_name}).fetchone()
+    if not playlist:
+        print(f"警告: 找不到播放列表 '{playlist_name}'")
+        return []
+
+    # 使用 pyrekordbox 获取内容
+    # 注意: 这里假设 pyrekordbox 的 get_content 能处理 ID 或者直接传对象
+    # 实际上由于是 Stems 专用，我们需要遍历播放列表项
+    try:
+        playlist_id = getattr(playlist, 'ID', playlist[0] if isinstance(playlist, (list, tuple)) else None)
+        songs = db.get_playlist_songs(playlist_id)
+    except:
+        print(f"警告: 无法获取播放列表 '{playlist_name}' 的歌曲内容")
+        return []
+        
+    for song in songs:
         
         content_id = getattr(song, 'ContentID', None)
         if not content_id:
@@ -7932,6 +7948,7 @@ if __name__ == "__main__":
             print("建议降低最低分数重试")
     else:
         # 原有的排Set功能
+        parser = argparse.ArgumentParser(description="增强版专业DJ Set排序工具")
         parser.add_argument('playlist', nargs='?', default='default',
                            help='播放列表名称 (或使用 artist:Name / search:Query 直接搜索)')
         

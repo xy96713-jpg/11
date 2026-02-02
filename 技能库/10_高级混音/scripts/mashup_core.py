@@ -251,8 +251,6 @@ class MashupIntelligence:
         """
         score = 0.0
         details = {}
-        base_bpm_match = 0.0 # Defensive Init for UnboundLocalError
-        bpm_score = 0.0 # [V35.19] Fix UnboundLocalError
         
         # [V11.0] 使用全局 DNA 映射逻辑
         s1 = map_dna_features(track1.get('analysis', track1))
@@ -317,12 +315,7 @@ class MashupIntelligence:
         busy1 = s1.get('busy_score', 0.5)
         busy2 = s2.get('busy_score', 0.5)
         
-        bpm1 = s1.get('bpm', 0)
-        bpm2 = s2.get('bpm', 0)
-        
-        # [V35.17] DEBUG CORE
-        if "foot fungus" in str(track2).lower():
-             print(f"DEBUG CORE FOOT FUNGUS: BPM1={bpm1} BPM2={bpm2}")
+        bpm_score = 0.0
         
         # [V35.11] Data Integrity Check
         if not bpm1 or not bpm2:
@@ -341,19 +334,17 @@ class MashupIntelligence:
             assigned_ratio = ratios[best_idx]
             
             # [V16.2] 分层评分 & 10-BPM 惩罚
-            current_bpm_score = 0.0
-            
             if best_ratio_diff <= 0.04:
-                # 💎 黄金区 (0-4%, 约 5 BPM)
-                current_bpm_score = 10.0
+                # 💎 黄金区 (0-4%, 约 5 BPM): 满分降权 (原 15 -> 10)
+                base_bpm_match = 10.0
                 details['bpm_tier'] = "Golden"
             elif best_ratio_diff <= 0.08:
-                # 🏎️ 专业弹性区 (4-8%, 约 10 BPM)
-                current_bpm_score = 5.0
+                # 🏎️ 专业弹性区 (4-8%, 约 10 BPM): 基础分
+                base_bpm_match = 5.0
                 details['bpm_tier'] = "Professional"
             elif best_ratio_diff <= 0.12:
-                # 🎢 创意冒险区 (8-12%, 约 10-15 BPM)
-                current_bpm_score = -10.0
+                # 🎢 创意冒险区 (8-12%, 约 10-15 BPM): 重罚 -10
+                base_bpm_match = -10.0
                 details['bpm_tier'] = "Creative Risk"
                 details['bpm_warning'] = f"10-BPM Rule Warning: 偏离 {best_ratio_diff*100:.1f}%"
             else:
@@ -362,12 +353,9 @@ class MashupIntelligence:
             
             # [V7.4] 本体感保护：如果不是 1:1 匹配且偏离较大，扣分
             if abs(assigned_ratio - 1.0) > 0.1:
-                current_bpm_score -= 5.0
-            
-            try:
-                bpm_score += max(0, current_bpm_score)
-            except Exception as e:
-                print(f"DEBUG CRASH BPM SCORE: {e}")
+                base_bpm_match -= 5.0
+                
+            bpm_score += max(0, base_bpm_match)
             
             # 感官速度/繁忙度对齐 (10分 -> 8分)
             perceptual_sim = (1.0 - abs(od1 - od2)) * 4 + (1.0 - abs(busy1 - busy2)) * 4

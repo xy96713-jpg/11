@@ -52,8 +52,13 @@ MOOD_THRESHOLDS = {
     "Electronic": {"tags": ["electronic", "techno", "house", "bass"]} # 补遗性质
 }
 
+try:
+    from core.cache_manager import DEFAULT_CACHE_PATH
+except ImportError:
+    DEFAULT_CACHE_PATH = "song_analysis_cache.json"
+
 class DeepLibraryTaggerPro:
-    def __init__(self, cache_path: str = "song_analysis_cache.json"):
+    def __init__(self, cache_path: str = DEFAULT_CACHE_PATH):
         self.cache_path = Path(cache_path)
         self.db = Rekordbox6Database()
         self.researcher = IntelligenceResearcher()

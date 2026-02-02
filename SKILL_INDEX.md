@@ -1,4 +1,4 @@
-# 🧰 AGENT SKILL ARSENAL (技能军火库索引)
+# 🧰 AGENT SKILL ARSENAL (技能军火库索引 - V8.8)
 
 > **Updated: 2026-02-02**
 > 本文档由系统自动生成，用于记录当前 Agent 已装载的所有核心模组。
@@ -11,8 +11,10 @@
 | **04** | **System Utility** | **系统底层支持**<br>(文件操作、环境检测、依赖管理) | *(自动触发)* |
 | **05** | **Aesthetic Expert** | **极简审美与动画**<br>**VQA 强制验证**、粒子特效、Glassmorphism | "写一个粒子动画"<br>"生成赛博朋克 UI" |
 | **06** | **Universal Solutions** | **全域解决方案架构师**<br>**搜索三位一体** (MCP+GitHub+BestPractices) | **"/solve: [问题]"**<br>**"给个方案"**、"全面搜索" |
+| **07** | **Short Video Analyst** | **短视频智能分析**<br>抖音/TikTok 无水印笔记、关键帧提取 | "分析这个视频"<br>"提取视频链接" |
 | **08** | **Premium UI** | **高级前端设计**<br>Dashboard、数据可视化、React 组件 | "生成一个监控大屏"<br>"设计一个高级表单" |
 | **09** | **3D Visualizer** | **3D 可视化专家**<br>Three.js、WebGL、模型渲染 | "用 3D 展示..."<br>"生成 3D 地球" |
+| **10** | **Mashup Expert** | **高级混音专家**<br>自动化 Mashup、Sonic Worker 音色融合 | "把这两首歌混在一起"<br>"制作 Bootleg" |
 
 ---
 

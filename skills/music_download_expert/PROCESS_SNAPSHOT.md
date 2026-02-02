@@ -3,14 +3,12 @@
 **Date**: 2026-01-28
 **Objective**: Strict "No YouTube" high-quality audio download with perfect metadata.
 
-## 🌟 Core Strategy
-1.  **Source Restriction**:
-    *   Strictly block `youtube` extractors in `yt-dlp`.
-    *   **SoundCloud (SC)**: 仅允许通过 `soundcloud_agent.py` 及其模块化链进行下载。
-    *   **NetEase (163)**: 保持原有逻辑。
-2.  **Modular Chain**:
-    *   `download_and_tag.py` -> `soundcloud_agent.py` -> `ultra_fast_download.py`
-    *   强制并行下载、正方形封面裁剪与 ID3 v2.3 写入。
+## 🌟 Core Strategy (V8.6 Gold Standard)
+1.  **Strict Source Blocking**: 强制使用 `block_extractors` 物理屏蔽所有 YouTube 及其衍生引擎（search, tab, playlist）。
+2.  **SoundCloud Primacy**: 
+    *   **Direct**: 通过 `soundcloud_agent.py` 处理 SC 链接。
+    *   **Search**: 仅允许 `scsearch` 关键词检索。
+3.  **Hifi Audio Flow**: 拒绝低码率转录，仅抓取流媒体原声，由 V8.4 标准补完元数据与 ID3 v2.3 标签。
 
 ## 📂 Key Scripts (Current State)
 

@@ -64,6 +64,12 @@ def _camelot_map():
         "F# Major":"2B","C# Major":"3B","G# Major":"4B","D# Major":"5B","A# Major":"6B","F Major":"7B",
         "A Minor":"8A","E Minor":"9A","B Minor":"10A","F# Minor":"11A","C# Minor":"12A","G# Minor":"1A",
         "D# Minor":"2A","A# Minor":"3A","F Minor":"4A","C Minor":"5A","G Minor":"6A","D Minor":"7A",
+        # Short Notation Support
+        "C": "8B", "G": "9B", "D": "10B", "A": "11B", "E": "12B", "B": "1B",
+        "F#": "2B", "Gb": "2B", "C#": "3B", "Db": "3B", "G#": "4B", "Ab": "4B", 
+        "D#": "5B", "Eb": "5B", "A#": "6B", "Bb": "6B", "F": "7B",
+        "Am": "8A", "Em": "9A", "Bm": "10A", "F#m": "11A", "Gbm": "11A", "C#m": "12A", "Dbm": "12A", "G#m": "1A", "Abm": "1A",
+        "D#m": "2A", "Ebm": "2A", "A#m": "3A", "Bbm": "3A", "Fm": "4A", "Cm": "5A", "Gm": "6A", "Dm": "7A"
     }
 
 def _keys_compatible(c1, c2):
@@ -96,15 +102,27 @@ def get_advanced_harmonic_score(k1, k2):
     k1_str = _safe_key_str(k1)
     k2_str = _safe_key_str(k2)
     
-    c1 = m.get(k1_str) if k1_str else None
-    c2 = m.get(k2_str) if k2_str else None
+    # [V5.3] Aggressive Cleaning
+    def _clean_key(k):
+        if not k: return None
+        # Remove " Major", " Minor" suffix variations if map lookup fails
+        k = k.replace(" Major", "").replace(" Minor", "")
+        k = k.replace("maj", "").replace("min", "m")
+        k = k.strip()
+        return k
+
+    c1 = m.get(k1_str)
+    if not c1: c1 = m.get(_clean_key(k1_str))
     
-    # Check if k1/k2 are already camelot (e.g. "8A")
-    if not c1 and k1_str and k1_str[-1] in ('A', 'B'): c1 = k1_str
-    if not c2 and k2_str and k2_str[-1] in ('A', 'B'): c2 = k2_str
+    c2 = m.get(k2_str)
+    if not c2: c2 = m.get(_clean_key(k2_str))
+    
+    # Check if k1/k2 are already Camelot (e.g. "8A")
+    if not c1 and k1_str and len(k1_str) <= 3 and k1_str[-1] in ('A', 'B') and k1_str[0].isdigit(): c1 = k1_str
+    if not c2 and k2_str and len(k2_str) <= 3 and k2_str[-1] in ('A', 'B') and k2_str[0].isdigit(): c2 = k2_str
     
     if not c1 or not c2:
-        return (0, "Unknown Key Format")
+        return (0, f"Unknown Key Format ({k1_str}|{k2_str})")
     return _keys_compatible(c1, c2)
 
 def get_smart_pitch_shift(k1, k2):

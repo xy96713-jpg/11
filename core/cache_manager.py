@@ -3,7 +3,7 @@ import os
 import tempfile
 from pathlib import Path
 
-DEFAULT_CACHE_PATH = r"d:\anti\song_analysis_cache.json"
+DEFAULT_CACHE_PATH = r"d:\anti\scripts\song_analysis_cache.json"
 
 def load_cache(cache_path=DEFAULT_CACHE_PATH):
     """

@@ -57,16 +57,22 @@ def apply_metadata_robust(path, meta):
         print(f"FAIL: {e}")
 
 if __name__ == "__main__":
-    dir_path = r"D:\song\Final_Music_Official"
-    mapping = {
-        "Hearts2Hearts_FOCUS.mp3": "Hearts2Hearts FOCUS",
-        "SHE_MeiliXinShijie.mp3": "S.H.E 美丽新世界", 
-        "aespa_Angel_48.mp3": "aespa Angel #48",
-        "TTS_Stay.mp3": "TaeTiSeo Stay Holler"
-    }
-    for f, q in mapping.items():
-        path = os.path.join(dir_path, f)
-        if os.path.exists(path):
-            meta = get_itunes_metadata(q)
+    import sys
+    if len(sys.argv) > 2:
+        path_arg = sys.argv[1]
+        query_arg = sys.argv[2]
+        
+        # If path is only filename, join with D:\song
+        if not os.path.isabs(path_arg):
+            path_arg = os.path.join(r"D:\song", path_arg)
+            
+        if os.path.exists(path_arg):
+            meta = get_itunes_metadata(query_arg)
             if meta:
-                apply_metadata_robust(path, meta)
+                apply_metadata_robust(path_arg, meta)
+            else:
+                print(f"⚠️ Could not find metadata for: {query_arg}")
+        else:
+            print(f"❌ File not found: {path_arg}")
+    else:
+        print("Usage: python robust_tagger.py <filepath> <search_query>")
