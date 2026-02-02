@@ -1,4 +1,3 @@
----
 name: universal-solutions
 description: A high-level Solutions Architect that performs omni-channel search, comparative analysis, and provides a definitive implementation plan.
 triggers:
@@ -6,6 +5,7 @@ triggers:
   - "给个方案"
   - "帮我评估"
   - "全网搜索"
+  - "全面搜索"
   - "analyze solution"
 ---
 

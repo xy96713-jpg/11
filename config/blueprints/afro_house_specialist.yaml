@@ -1,0 +1,34 @@
+# Afro & Deep House Expert Blueprint (V21.0)
+# Designed for: Amapiano, Afro Beats, Deep House
+name: "Afro-House Specialist"
+description: "Optimized for polyrhythmic textures, log drums, and spiritual vocal layering."
+
+rules:
+  genre_priorities:
+    - "Afro"
+    - "Amapiano"
+    - "Deep House"
+    - "Tech House"
+  energy_flow: "Deep Build"  # Slow brewing energy
+  vocal_interplay: false     # Allow vocal chops to overlap for atmosphere
+  
+scoring_weights:
+  percussion_sync: 0.40     # CRITICAL: Groove over melody
+  key_compatibility: 0.30   # Spiritual flow
+  bpm_stability: 0.20       # Lock the groove
+  timbre_matching: 0.10
+
+transitions:
+  preferred_styles:
+    - "Long Blend (64 bars)"
+    - "Percussion Swap"
+  bridge_tracks:
+    - "Minimal Tech"
+    - "Tribal House"
+
+narrative_theme:
+  title: "Global Groove Expedition"
+  chapters:
+    - "The Ancestral Call (Afro Intro)"
+    - "Log Drum Evolution (Amapiano Section)"
+    - "Deep Tech Horizons"

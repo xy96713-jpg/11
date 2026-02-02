@@ -172,8 +172,8 @@ async def recommend_for_track(query: str, playlists: List[str], threshold: float
     from datetime import datetime
     generation_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
-    # 【V18.1】最强大脑精选：仅保留前 3 个
-    elite_matches = matches[:3]
+    # 【V19.5 Deep Vibe Search】挖掘前 30 名以寻找非 Pop 选项
+    elite_matches = matches[:30]
     match_count = len(elite_matches)
     
     # 清理文件名

@@ -27,6 +27,109 @@ except ImportError:
     from common_utils import get_advanced_harmonic_score, get_smart_pitch_shift
     def map_dna_features(a): return a
 
+class SonicMatcher:
+    """
+    [V22.0] Sonic DNA / Timbre Intelligence
+    Implements the "Sonic Dictionary" to override music theory with timbre compatibility.
+    """
+    
+    # 核心音色字典 (Mirror of Mediator Knowledge Base)
+    SONIC_GALLERY = {
+        # Oriental Pluck Cluster
+        "忍者": ["Oriental_Pluck", "Staccato_Rap", "Metallic_Transients", "100-110_Groove"],
+        "ninja": ["Oriental_Pluck", "Staccato_Rap", "Metallic_Transients", "100-110_Groove"],
+        
+        # Kung Fu / Nu-Metal Cluster
+        "龙拳": ["Oriental_Percussion", "Nu_Metal_Rap", "Aggressive_Flow", "Kung_Fu_Vibe"],
+        "dragon fist": ["Oriental_Percussion", "Nu_Metal_Rap", "Aggressive_Flow", "Kung_Fu_Vibe"],
+        
+        # West Coast / Gangsta Cluster
+        "still d.r.e.": ["West_Coast", "Piano_Loop", "Gangsta_Flow"],
+        "the next episode": ["West_Coast", "Gangsta_Flow"],
+        "in da club": ["Club_Banger", "Gangsta_Flow"],
+        "lose yourself": ["Aggressive_Flow", "Lyricist_Flow"],
+        
+        # Pizzicato Cluster (The Sonic Cousin)
+        "foot fungus": ["Pizzicato_Pluck", "Staccato_Rap", "Dry_Texture", "100-110_Groove"],
+        "lineman": ["Pizzicato_Pluck"], 
+        
+        # G-Funk Cluster
+        "in california": ["G_Funk_Synth", "West_Coast"],
+        
+        # Amapiano Cluster
+        "amapiano": ["Log_Drum", "Wood_Texture"],
+        "log drum": ["Log_Drum", "Wood_Texture"],
+    }
+    
+    @staticmethod
+    def get_sonic_tags(track_title: str) -> List[str]:
+        title_lower = track_title.lower()
+        tags = []
+        
+        # 1. Direct Lookup
+        for key, vals in SonicMatcher.SONIC_GALLERY.items():
+            if key in title_lower:
+                tags.extend(vals)
+                
+        # 2. Heuristic Rules
+        if "amapiano" in title_lower:
+            tags.append("Log_Drum")
+        if any(x in title_lower for x in ["dr. dre", "snoop", "50 cent", "ice cube"]):
+             tags.append("Gangsta_Flow")
+             tags.append("West_Coast")
+        if any(x in title_lower for x in ["eminem", "linkin park", "limp bizkit"]):
+             tags.append("Nu_Metal_Rap")
+             
+        # 3. [V30.0] AudioCortex DSP Analysis (Dynamic Signal Processing)
+        # Attempt to get real instrument tags from the DSP engine
+        try:
+            # We don't have the file path here easily in this static method signature
+            # But in a real implementation, we would pass the file path.
+            # For now, we rely on the heuristic matching for the "Ninja" case.
+            # Future TODO: Pass file_path to get_sonic_tags
+            pass
+        except Exception:
+            pass
+            
+        return list(set(tags)) # Deduplicate
+
+    @staticmethod
+    def calculate_bonus(t1_title: str, t2_title: str) -> Tuple[float, List[str]]:
+        tags1 = SonicMatcher.get_sonic_tags(t1_title)
+        tags2 = SonicMatcher.get_sonic_tags(t2_title)
+        
+        bonus = 0.0
+        reasons = []
+        
+        # Rule 1: Pluck Synergy (Oriental <-> Pizzicato)
+        has_oriental = any(t == "Oriental_Pluck" for t in tags1 + tags2)
+        has_pizzicato = any(t == "Pizzicato_Pluck" for t in tags1 + tags2)
+        
+        if has_oriental and has_pizzicato:
+            bonus += 30.0
+            reasons.append("🧬 Sonic Cousin: Oriental/Pizzicato Pluck")
+            
+        # Rule 2: Flow Mirror (Staccato x Staccato)
+        if "Staccato_Rap" in tags1 and "Staccato_Rap" in tags2:
+            bonus += 15.0
+            reasons.append("⚡ Flow Mirror: Staccato Rap Lock")
+            
+        # Rule 3: Kung Fu x Gangsta (Dragon Fist Special)
+        # Nu-Metal/Kung Fu fits aggressively with West Coast Gangsta Rap
+        has_kungfu = any(t in ["Kung_Fu_Vibe", "Oriental_Percussion"] for t in tags1 + tags2)
+        has_gangsta = any(t in ["Gangsta_Flow", "West_Coast"] for t in tags1 + tags2)
+        
+        if has_kungfu and has_gangsta:
+            bonus += 25.0
+            reasons.append("🥋 Kung Fu Hustle: Oriental Percussion x Gangsta Rap")
+            
+        # Rule 4: Aggressive Energy Lock
+        if "Aggressive_Flow" in tags1 and ("Aggressive_Flow" in tags2 or "Nu_Metal_Rap" in tags2):
+            bonus += 15.0
+            reasons.append("🔥 High Voltage: Aggressive Flow Sync")
+            
+        return bonus, reasons
+
 class MashupIntelligence:
     def __init__(self, config: Dict = None):
         self.config = config or {}
@@ -117,8 +220,8 @@ class MashupIntelligence:
             
             # [V16.2] 分层评分 & 10-BPM 惩罚
             if best_ratio_diff <= 0.04:
-                # 💎 黄金区 (0-4%, 约 5 BPM): 满分
-                base_bpm_match = 15.0
+                # 💎 黄金区 (0-4%, 约 5 BPM): 满分降权 (原 15 -> 10)
+                base_bpm_match = 10.0
                 details['bpm_tier'] = "Golden"
             elif best_ratio_diff <= 0.08:
                 # 🏎️ 专业弹性区 (4-8%, 约 10 BPM): 基础分
@@ -137,8 +240,8 @@ class MashupIntelligence:
                 
             bpm_score += max(0, base_bpm_match)
             
-            # 感官速度/繁忙度对齐 (10分)
-            perceptual_sim = (1.0 - abs(od1 - od2)) * 5 + (1.0 - abs(busy1 - busy2)) * 5
+            # 感官速度/繁忙度对齐 (10分 -> 8分)
+            perceptual_sim = (1.0 - abs(od1 - od2)) * 4 + (1.0 - abs(busy1 - busy2)) * 4
             bpm_score += perceptual_sim
             
             score += bpm_score
@@ -149,9 +252,9 @@ class MashupIntelligence:
         k2 = s2.get('key', '')
         h_score, h_desc = get_advanced_harmonic_score(k1, k2)
         
-        weighted_key = (h_score / 100.0) * 15
+        weighted_key = (h_score / 100.0) * 10
         score += weighted_key
-        details['key'] = f"{weighted_key:.1f}/15 ({h_desc})"
+        details['key'] = f"{weighted_key:.1f}/10 ({h_desc})"
 
         # --- 3. Stems 互补强化 (25%) ---
         v1 = s1.get('vocal_ratio', 0.5)
@@ -283,8 +386,9 @@ class MashupIntelligence:
         cultural_bonus = 0.0
         details_culture = []
         
-        if mode == 'mashup_discovery':
-            # 仅在 'mashup_discovery' 模式下激活，避免污染常规 Set 排序
+        if mode == 'standard' or mode == 'mashup_discovery':
+            # [V19.3 Scarcity] 默认激活文化审计
+
             
             # 准备标签字符串 (Genre + Tags)
             tags1 = (str(s1.get('tags', [])) + " " + str(s1.get('genre', ''))).lower()
@@ -320,7 +424,8 @@ class MashupIntelligence:
                     clusters_present = sum([1 if is_c else 0, 1 if is_k else 0, 1 if is_w else 0])
                     
                     if clusters_present >= 2:
-                        cultural_bonus += 20.0
+                        cultural_bonus += 30.0 # [V19.3] 跨界升值
+
                         details_culture.append("Golden Cluster (跨界流行对等)")
                     else:
                         cultural_bonus += 10.0 # 站内同步
@@ -399,6 +504,22 @@ class MashupIntelligence:
                 all_affinity = details_dna + details_culture
                 details['cultural_affinity'] = ", ".join(all_affinity)
 
+        # --- 8. [V22.0] Sonic DNA Injection (音色基因注入) ---
+        t1_name = track1.get('track_info', {}).get('title', '') or track1.get('title', '')
+        t2_name = track2.get('track_info', {}).get('title', '') or track2.get('title', '')
+        
+        sonic_bonus, sonic_reasons = SonicMatcher.calculate_bonus(t1_name, t2_name)
+        if sonic_bonus > 0:
+            score += sonic_bonus # Add to base score BEFORE final total
+            details['sonic_dna'] = f"+{sonic_bonus} ({', '.join(sonic_reasons)})"
+            
+            # [V22.0 Override] 如果存在 Sonic Match，自动豁免各类惩罚
+            if "key_match" in details and float(details['key'].split('/')[0]) < 5.0:
+                 details['key'] += " [Sonic Override]"
+            
+            # 强制判定为 "Golden"
+            details['elite_audit'] = "Sonic DNA Certified"
+
         # [V16.0] 恢复累加评分体系 (Cumulative Scoring)
         # 确保文化加分能够挽救物理分稍低但极具创意的曲目
         final_total = score + cultural_bonus + dna_bonus + same_title_penalty
@@ -406,14 +527,14 @@ class MashupIntelligence:
         # [V18.2 Elite Capping] 最强大脑：只有真正“悦耳”的组合才能突破
         p_pattern = details.get('mashup_pattern', '')
         # 如果调性不匹配 (Key score < 10)，直接降级
-        is_harmonic = details.get('key_match', True) # Assume true if not explicitly false
-        if h_score < 10.0:
+        # [V22.0] Sonic Bypass: 如果有音色加成，则忽略调性封锁
+        if h_score < 10.0 and sonic_bonus <= 0:
             final_total -= 20.0 # 严厉打击调性冲突的“假匹配”
             details['elite_audit'] = "Capped: Harmonic Dissonance"
             
         is_elite_pattern = "Vocal Overlay" in p_pattern or "Vocal Alternation" in p_pattern
         
-        if not is_elite_pattern and final_total > 70.0:
+        if not is_elite_pattern and final_total > 70.0 and sonic_bonus <= 0:
             final_total = 70.0 # 进一步收紧封顶
             details['elite_audit'] = "Capped at 70 (No Professional Stem pattern)"
         
