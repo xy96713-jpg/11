@@ -4,16 +4,17 @@
 
 ## ⚡ 核心能力：全技能军火库 (Skill Arsenal)
 
-| ID | 技能代号 (Code Name) | 核心能力 (Core Capability) | 🔴 必杀技 / 触发指令 (Triggers) |
+| ID | 技能名称 | 📂 目录名 | 🔴 激活指令 (Triggers) |
 | :--- | :--- | :--- | :--- |
-| **01** | **Deep Research** | **深度调研**<br>生成长篇研究报告、竞品分析 | "帮我深挖一下..."<br>"调研这个课题..." |
-| **02** | **Music Hunter** | **无损音乐获取**<br>全网音频下载、封面元数据修复 | "下载 [歌名]"<br>"帮我下一下 NewJeans 的歌" |
-| **03** | **AI DJ** | **智能混音架构**<br>分析 Key/BPM、排布 Set 能量曲线 | "把这些歌排成一个 Set"<br>"分析这首歌的调性" |
-| **04** | **System Utility** | **系统底层支持**<br>(文件操作、环境检测、依赖管理) | *(自动触发)* |
-| **05** | **Visual & Dynamic Lab** | **视觉与动态实验室**<br>**VQA 强制验证**、粒子特效、高级 UI、3D 可视化 | "写一个粒子动画"<br>"生成赛博朋克 UI"<br>"3D 地球展示" |
-| **06** | **Universal Solutions** | **全域解决方案架构师**<br>**搜索三位一体** (MCP+GitHub+BestPractices) | **"/solve: [问题]"**<br>**"给个方案"**、"全面搜索" |
-| **07** | **Short Video Analyst** | **短视频智能分析**<br>抖音/TikTok 无水印笔记、关键帧提取 | "分析这个视频"<br>"提取视频链接" |
-| **08** | **Mashup Expert** | **高级混音专家**<br>自动化 Mashup、Sonic Worker 音色融合 | "把这两首歌混在一起"<br>"制作 Bootleg" |
+| **01** | **🧠 深度研究 (Deep Research & NotebookLM Aligned)** | `01_深度研究` | (自动激活/无需指令) |
+| **02** | **🎵 音乐下载专家 V8.8 (Music Download Expert)** | `02_音乐下载` | (自动激活/无需指令) |
+| **03** | **🎧 DJ 智能助手 (DJ Intelligence / Master DJ V7.5 Pro)** | `03_DJ智能助手` | (自动激活/无需指令) |
+| **04** | **🛠️ 系统工具 (System Tools / Environment Enabler)** | `04_系统工具` | (自动激活/无需指令) |
+| **05** | **🎨 视觉与动态实验室 (Visual & Dynamic Lab)** | `05_极简审美与动画` | (自动激活/无需指令) |
+| **06** | **🧠 全域解决方案架构师 (Universal Solutions Architect)** | `06_全域解决方案` | "solve"<br>""solve""<br>"给个方案" |
+| **07** | **📉 短视频智能分析 (Short Video Intelligence)** | `07_短视频分析` | (自动激活/无需指令) |
+| **08** | **🎚️ 高级混音大师 (Mashup Intelligence)** | `08_高级混音` | (自动激活/无需指令) |
+
 
 ## 📦 技能模块 (点击进入查看详情)
 
