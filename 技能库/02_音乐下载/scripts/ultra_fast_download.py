@@ -149,7 +149,7 @@ def embed_cover(mp3_path, cover_path):
         print(f"封面嵌入失败: {e}")
         return False
 
-def fast_download(url, output_dir="D:/song"):
+def fast_download(url, output_dir="D:/song", save_cover=False):
     """超快速下载流程"""
     print("🚀 启动超快速下载...")
     
@@ -163,7 +163,8 @@ def fast_download(url, output_dir="D:/song"):
     
     # 设置文件路径
     mp3_path = os.path.join(output_dir, f"{title}.mp3")
-    cover_path = os.path.join(output_dir, f"{title}_cover.png") if cover_url else None
+    # 默认下载为 jpg 格式，以便用户直接使用
+    cover_path = os.path.join(output_dir, f"{title}.jpg") if cover_url else None
     
     print(f"📀 歌曲: {title}")
     if cover_url:
@@ -187,9 +188,18 @@ def fast_download(url, output_dir="D:/song"):
         if cover_success:
             print("🔗 嵌入封面...")
             if embed_cover(mp3_path, cover_path):
+                if not save_cover:
+                    # 如果不需要保留封面文件，则在嵌入后删除
+                    try:
+                        os.remove(cover_path)
+                        print("🗑️ 已清理临时封面文件")
+                    except:
+                        pass
+                else:
+                    print(f"🖼️ 封面已保存: {cover_path}")
+                
                 print("✅ 下载完成!")
                 print(f"📁 文件位置: {mp3_path}")
-                print(f"🖼️ 封面位置: {cover_path}")
                 return True
             else:
                 print("⚠️ 封面嵌入失败，但音频下载成功")
@@ -206,11 +216,16 @@ def fast_download(url, output_dir="D:/song"):
 
 if __name__ == "__main__":
     import sys
-    if len(sys.argv) > 1:
-        url = sys.argv[1]
-        fast_download(url)
-    else:
-        print("请提供音乐链接")
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="超快速音乐下载器")
+    parser.add_argument("url", help="音乐链接 (YouTube/SoundCloud等)")
+    parser.add_argument("--save-cover", action="store_true", help="是否额外保存封面为JPG文件")
+    parser.add_argument("--output", default="D:/song", help="输出目录")
+    
+    args = parser.parse_args()
+    
+    fast_download(args.url, output_dir=args.output, save_cover=args.save_cover)
 
 
 

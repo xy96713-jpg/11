@@ -12,11 +12,20 @@ import hashlib
 import yaml
 from pathlib import Path
 
-# Import atomicity manager
+# Import atomicity# 导入质量监控
 try:
-    from core.cache_manager import load_cache, save_cache_atomic
+    from conflict_monitor_overlay import generate_radar_report
 except ImportError:
-    # Handle direct execution
+    def generate_radar_report(tracks): return "无法生成雷达报告"
+
+# 【V33.0】导入母带级语义分析核心
+try:
+    from core.mastering_core import MasteringAnalyzer
+    MASTERING_ANALYZER = MasteringAnalyzer()
+    HAS_MASTERING_CORE = True
+except ImportError:
+    HAS_MASTERING_CORE = False
+    MASTERING_ANALYZER = None
     import sys
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from core.cache_manager import load_cache, save_cache_atomic
@@ -317,6 +326,13 @@ def analyze_mix_metrics_light(y: "np.ndarray", sr: int, bpm: float, beat_times: 
         # 注入情感氛围与深度标签
         energy_val = res.get("energy", 50) / 100.0
         res["vibe_analysis"] = calculate_vibe_tags(y, sr, energy=energy_val)
+        
+        # 【V33.2 Full Power】提取高维 Sonic DNA (基因解剖)
+        if HAS_MASTERING_CORE and MASTERING_ANALYZER and file_path:
+            try:
+                res["sonic_dna"] = MASTERING_ANALYZER.extract_sonic_dna(file_path)
+            except Exception:
+                res["sonic_dna"] = {}
         
     except Exception:
         # Fallback Swing Detection

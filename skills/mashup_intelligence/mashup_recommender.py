@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-AI DJ Mashup Recommender (V4 Core)
+AI DJ Mashup Recommender (V32.0 DSP Neural Core)
 - 11-Dimension Scoring System Integration
 - Rekordbox Playlist Scanning
 - Professional Stems Execution Guide

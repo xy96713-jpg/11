@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-增强版专业DJ Set排序工具
+增强版专业DJ Set排序工具 (V35.21 / V32.0 DSP Core)
 注重调性和谐 + 灵活排序 + 生成混音建议
 """
 
@@ -22,12 +22,14 @@ from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # 【Phase 9】系统目录整合 - 动态调整路径以支持 D:\anti 结构
-BASE_DIR = Path(__file__).parent
-for sub_dir in ["skills", "core", "config", "exporters", "agents"]:
-    sys.path.insert(0, str(BASE_DIR / sub_dir))
+# [V35.21 Fix] Correct Project Root Resolution
+BASE_DIR = Path(__file__).resolve().parent.parent.parent # d:/anti
+sys.path.insert(0, str(BASE_DIR))
+sys.path.insert(0, str(BASE_DIR / "core"))
+sys.path.insert(0, str(BASE_DIR / "skills"))
+sys.path.insert(0, str(BASE_DIR / "core" / "rekordbox-mcp")) # Fixed Rekordbox import
 
-# 添加 rekordbox-mcp 的父目录以支持 import rekordbox_mcp
-sys.path.insert(0, str(BASE_DIR / "core" / "rekordbox-mcp"))
+from rekordbox_mcp.models import SearchOptions # [V35.21 Fix] Import SearchOptions
 
 from exporters.xml_exporter import export_to_rekordbox_xml
 
@@ -5331,20 +5333,136 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
         except:
             print("Connected!")
         
-        # 查找播放列表 - 直接使用pyrekordbox查询
-        target_playlist = None
-        playlist_id = None
-        
-        # 首先尝试使用ID（如果输入的是数字）
-        if playlist_name.isdigit():
-            playlist_id = playlist_name
-            try:
-                # 尝试整数和字符串两种格式
-                for test_id in [int(playlist_id), playlist_id]:
+        # [V35.21 Fix] Handle prefixes explicitly
+        with open("d:/anti/sorter_debug.log", "a", encoding='utf-8') as dbg_log:
+            dbg_log.write(f"DEBUG: Entering logic with playlist_name='{playlist_name}'\n")
+
+        class MockPlaylist:
+            def __init__(self, name):
+                self.id = "SEARCH_RESULT"
+                self.name = name
+                self.is_folder = False
+                self.parent_id = None
+                self.track_count = 0
+
+        if playlist_name.startswith("artist:"):
+            artist_query = playlist_name.split(":", 1)[1]
+            print(f"模式: 按艺术家搜索 '{artist_query}'")
+            tracks_raw = await db.search_tracks(SearchOptions(artist=artist_query))
+            target_playlist = MockPlaylist(f"Artist: {artist_query}")
+            playlist_id = "SEARCH_RESULT"
+            
+        elif playlist_name.startswith("search:"):
+            query = playlist_name.split(":", 1)[1]
+            print(f"模式: 按关键词搜索 '{query}'")
+            with open("d:/anti/sorter_debug.log", "a", encoding='utf-8') as dbg_log:
+                dbg_log.write(f"DEBUG: Query value: '{query}'\n")
+            
+            tracks_raw = await db.search_tracks(SearchOptions(query=query))
+            
+            with open("d:/anti/sorter_debug.log", "a", encoding='utf-8') as dbg_log:
+                dbg_log.write(f"DEBUG: Found {len(tracks_raw)} tracks with query '{query}'\n")
+
+            safe_query = query.replace(':', '_').replace('/', '_').replace('\\', '_')
+            target_playlist = MockPlaylist(f"Search_{safe_query}")
+            playlist_id = "SEARCH_RESULT"
+            
+        else:
+            # Original Playlist Search Logic
+            # 查找播放列表 - 直接使用pyrekordbox查询
+            target_playlist = None
+            playlist_id = None
+            
+            # 首先尝试使用ID（如果输入的是数字）
+            if playlist_name.isdigit():
+                playlist_id = playlist_name
+                try:
+                    # 尝试整数和字符串两种格式
+                    for test_id in [int(playlist_id), playlist_id]:
+                        try:
+                            playlist_songs = list(pyrekordbox_db.get_playlist_songs(PlaylistID=test_id))
+                            if playlist_songs:
+                                # 创建一个虚拟的playlist对象
+                                class PlaylistObj:
+                                    def __init__(self, id, name):
+                                        self.id = id
+                                        self.name = name
+                                target_playlist = PlaylistObj(test_id, f"Playlist {test_id}")
+                                playlist_id = test_id
+                                break
+                        except:
+                            continue
+                except:
+                    pass
+            
+            # 如果ID查询失败，使用MCP数据库查询
+            if not target_playlist:
+                all_playlists = await db.get_playlists()
+                
+                # 首先尝试使用ID（如果输入的是数字）
+                if playlist_name.isdigit():
                     try:
-                        playlist_songs = list(pyrekordbox_db.get_playlist_songs(PlaylistID=test_id))
-                        if playlist_songs:
-                            # 创建一个虚拟的playlist对象
+                        playlist_id_str = str(playlist_name)
+                        playlist_id_int = int(playlist_name)
+                        for p in all_playlists:
+                            if (str(p.id) == playlist_id_str or 
+                                (isinstance(p.id, int) and p.id == playlist_id_int) or
+                                (isinstance(p.id, str) and p.id == playlist_id_str)):
+                                target_playlist = p
+                                playlist_id = p.id
+                                break
+                    except:
+                        pass
+                
+                # 如果ID匹配失败，尝试名称匹配
+                if not target_playlist:
+                    playlist_name_lower = playlist_name.lower().strip()
+                    candidates = []
+                    
+                    for p in all_playlists:
+                        if p.name:
+                            try:
+                                p_name_lower = p.name.lower().strip()
+                                # Exact match
+                                if playlist_name_lower == p_name_lower:
+                                    candidates.append((3, p))
+                                # Partial match
+                                elif playlist_name_lower in p_name_lower or p_name_lower in playlist_name_lower:
+                                    candidates.append((1, p))
+                            except:
+                                pass
+
+                    if candidates:
+                        # Sort logic: 
+                        # 1. Exact match > Partial match (handled by score 3 vs 1)
+                        # 2. Integer ID > UUID (Standard Rekordbox vs Imported)
+                        # 3. Newer modification date
+                        
+                        def sort_key(item):
+                            score, p = item
+                            is_int = 0
+                            try:
+                                int(p.id)
+                                is_int = 1
+                            except ValueError:
+                                pass
+                            mod_time = p.modified_date or ""
+                            return (score, is_int, mod_time)
+
+                        candidates.sort(key=sort_key, reverse=True)
+                        target_playlist = candidates[0][1]
+                        playlist_id = target_playlist.id
+                        
+                        if len(candidates) > 1:
+                            print(f"找到 {len(candidates)} 个匹配列表，自动选择最新/最标准的版本: {target_playlist.name} (ID: {target_playlist.id}, Tracks: {target_playlist.track_count})")
+            
+            # 如果找不到播放列表对象，但输入的是ID，直接使用ID
+            if not target_playlist and playlist_name.isdigit():
+                # 尝试整数和字符串两种格式
+                for test_id in [int(playlist_name), playlist_name]:
+                    try:
+                        test_songs = list(pyrekordbox_db.get_playlist_songs(PlaylistID=test_id))
+                        if test_songs:
                             class PlaylistObj:
                                 def __init__(self, id, name):
                                     self.id = id
@@ -5354,103 +5472,43 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
                             break
                     except:
                         continue
-            except:
-                pass
-        
-        # 如果ID查询失败，使用MCP数据库查询
-        if not target_playlist:
-            all_playlists = await db.get_playlists()
             
-            # 首先尝试使用ID（如果输入的是数字）
-            if playlist_name.isdigit():
-                try:
-                    playlist_id_str = str(playlist_name)
-                    playlist_id_int = int(playlist_name)
-                    for p in all_playlists:
-                        if (str(p.id) == playlist_id_str or 
-                            (isinstance(p.id, int) and p.id == playlist_id_int) or
-                            (isinstance(p.id, str) and p.id == playlist_id_str)):
-                            target_playlist = p
-                            playlist_id = p.id
-                            break
-                except:
-                    pass
-            
-            # 如果ID匹配失败，尝试名称匹配
             if not target_playlist:
-                playlist_name_lower = playlist_name.lower().strip()
-                candidates = []
-                
-                for p in all_playlists:
-                    if p.name:
-                        try:
-                            p_name_lower = p.name.lower().strip()
-                            # Exact match
-                            if playlist_name_lower == p_name_lower:
-                                candidates.append((3, p))
-                            # Partial match
-                            elif playlist_name_lower in p_name_lower or p_name_lower in playlist_name_lower:
-                                candidates.append((1, p))
-                        except:
-                            pass
-
-                if candidates:
-                    # Sort logic: 
-                    # 1. Exact match > Partial match (handled by score 3 vs 1)
-                    # 2. Integer ID > UUID (Standard Rekordbox vs Imported)
-                    # 3. Newer modification date
-                    
-                    def sort_key(item):
-                        score, p = item
-                        is_int = 0
-                        try:
-                            int(p.id)
-                            is_int = 1
-                        except ValueError:
-                            pass
-                        mod_time = p.modified_date or ""
-                        return (score, is_int, mod_time)
-
-                    candidates.sort(key=sort_key, reverse=True)
-                    target_playlist = candidates[0][1]
-                    playlist_id = target_playlist.id
-                    
-                    if len(candidates) > 1:
-                        print(f"找到 {len(candidates)} 个匹配列表，自动选择最新/最标准的版本: {target_playlist.name} (ID: {target_playlist.id}, Tracks: {target_playlist.track_count})")
-        
-        # 如果找不到播放列表对象，但输入的是ID，直接使用ID
-        if not target_playlist and playlist_name.isdigit():
-            # 尝试整数和字符串两种格式
-            for test_id in [int(playlist_name), playlist_name]:
                 try:
-                    test_songs = list(pyrekordbox_db.get_playlist_songs(PlaylistID=test_id))
-                    if test_songs:
-                        class PlaylistObj:
-                            def __init__(self, id, name):
-                                self.id = id
-                                self.name = name
-                        target_playlist = PlaylistObj(test_id, f"Playlist {test_id}")
-                        playlist_id = test_id
-                        break
+                    safe_name = playlist_name.encode('utf-8', errors='ignore').decode('ascii', errors='ignore')
+                    print(f"Playlist not found: {safe_name}")
+                    print("请确认播放列表名称或ID是否正确")
                 except:
-                    continue
+                    print("Playlist not found")
+                    print("Please confirm the playlist name or ID is correct")
+                await db.disconnect()
+                return
+            
+            # Start of loading tracks for normal playlist
+            if hasattr(target_playlist, 'is_folder') and target_playlist.is_folder:
+                 # Logic for folder handled later but we need to set tracks_raw to empty here to fall through?
+                 # Wait, looking at original code, folder logic was separate.
+                 # To keep it simple, I will let the original logic flow for playlists.
+                 pass
+            else:
+                 # The original logic fetches tracks_raw later.
+                 pass
+
+        # Check if tracks_raw is set (from search mode)
+        # If tracks_raw is NOT set, we need to populate it using standard logic
+        if 'tracks_raw' not in locals():
+             # Original logic to fetch tracks from playlist
+             tracks_raw = [] # Default
         
-        if not target_playlist:
-            try:
-                safe_name = playlist_name.encode('utf-8', errors='ignore').decode('ascii', errors='ignore')
-                print(f"Playlist not found: {safe_name}")
-                print("请确认播放列表名称或ID是否正确")
-            except:
-                print("Playlist not found")
-                print("Please confirm the playlist name or ID is correct")
-            await db.disconnect()
-            return
+        if 'tracks_raw' not in locals():
+            if not playlist_id:
+                playlist_id = target_playlist.id
         
-        if not playlist_id:
-            playlist_id = target_playlist.id
-        
+        # [V35.21 Fix] Skip loading if search result
+        if playlist_id == "SEARCH_RESULT":
+            pass
         # Handle Folder logic: If it's a folder, recursively get tracks from children
-        if target_playlist.is_folder:
+        elif target_playlist.is_folder:
             print(f"检测到 '{target_playlist.name}' 是一个文件夹，正在读取其下所有子列表...")
             try:
                 # Recursive function to get all playlist IDs in folder
@@ -5545,11 +5603,17 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
             print(f"播放列表中共有 {len(tracks_raw)} 首歌曲")
             
             # 【V3.0 ULTRA+ 修复】添加去重逻辑：按 file_path 去重
+            # [V36.0 Fix] 过滤掉 legacy 'isolated' 目录下的冗余歌曲，防止 M3U 重复
             seen_paths = set()
             unique_tracks_raw = []
             for t in tracks_raw:
                 file_path = getattr(t, 'file_path', '') or ''
-                path_lower = file_path.lower()
+                path_lower = file_path.lower().replace('\\', '/')
+                
+                # 排除系统生成的隔离文件 (D:/生成的set/audio/...)
+                if "/生成的set/" in path_lower:
+                    continue
+                    
                 if path_lower and path_lower not in seen_paths:
                     seen_paths.add(path_lower)
                     unique_tracks_raw.append(t)
@@ -6752,21 +6816,19 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
             # 1. 深度扁平化所有 Set
             sets = [get_flattened_tracks(s) if isinstance(s, list) else [s] for s in sets]
 
-            print(f"\n[V9.1 系统重构] 正在执行全量物理隔离与标点对齐 (Total Isolation)...")
-            isolated_audio_root = output_dir / "audio" / playlist_display_name
-            isolated_audio_root.mkdir(parents=True, exist_ok=True)
+            # [V36.0] 取消全量物理隔离，直接指向原始曲库
+            print(f"\n[V36.0 系统优化] 正在锁定曲库路径并同步标点...")
 
             # 2. 全量预处理逻辑 (原子化循环)
             for set_idx, set_tracks in enumerate(sets):
-                set_audio_dir = isolated_audio_root / f"Set_{set_idx + 1}"
-                set_audio_dir.mkdir(parents=True, exist_ok=True)
-                
                 for track in set_tracks:
                     if not isinstance(track, dict): continue
                     
-                    # A. 锁定指纹
-                    original_file_path = track.get('original_path') or track['file_path']
-                    if 'original_path' not in track: track['original_path'] = original_file_path
+                    # A. 锁定指纹 (V36.0 Standardized Path Normalization)
+                    raw_path = track.get('original_path') or track.get('file_path', '')
+                    original_file_path = str(Path(raw_path).resolve())
+                    track['original_path'] = original_file_path
+                    track['file_path'] = original_file_path
                     
                     # B. 标点探测 (始终基于原始路径，确保 100% 命中 DB)
                     if HOTCUE_GENERATOR_ENABLED and not track.get('pro_hotcues'):
@@ -6832,28 +6894,18 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
                             if isinstance(track['vocals'], dict):
                                 track['vocals']['segments'] = track['vocals'].get('segments', []) + [[dep, dep+15]]
 
-                    # C. 物理隔离与 Hash (V9.1 强制刷新方案)
-                    if original_file_path in processed_tracks_map:
-                        track['file_path'] = processed_tracks_map[original_file_path]
-                    else:
-                        src = Path(original_file_path)
-                        import time, hashlib
-                        fh = hashlib.md5(f"{time.time()}_{original_file_path}".encode()).hexdigest()[:6]
-                        new_name = f"{src.stem}_{fh}{src.suffix}"
-                        dst = set_audio_dir / new_name
-                        if src.exists():
-                            shutil.copy2(src, dst)
+                    # C. [V36.0] 取消物理隔离 (已由用户 LGTM 确认)
+                    # 保持 file_path 为原始路径，不再拷贝文件，以保存封面和分析元数据
+                    # 同时标准化为反斜杠，确保 Windows 下 Rekordbox 识别率最高
+                    try:
+                        normalized_path = str(Path(original_file_path).resolve())
+                        track['file_path'] = normalized_path
+                        track['original_path'] = normalized_path
+                    except:
+                        track['file_path'] = original_file_path
                         
-                        path_str = str(dst)
-                        track['file_path'] = path_str
-                        processed_tracks_map[original_file_path] = path_str
+                    track['force_refresh'] = False # 不再需要强制刷新
 
-                    # D. 元数据装饰
-                    orig_t = track.get('title', 'Unknown')
-                    if "✅[AI_FULL" not in str(orig_t):
-                        track['title'] = f"{orig_t} ✅[AI_FULL_V9.1]"
-                    track['artist'] = f"{track.get('artist', 'Unknown')} [VERIFIED]"
-                    track['force_refresh'] = True
 
             print("  [OK] 全闭环物理隔离与标点注入完成")
 
@@ -6909,14 +6961,20 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
             m3u_lines.append(f"\n# 分割线 - Set {set_idx} ({len(set_tracks)} 首歌曲)")
             
             for track in set_tracks:
-                # 【V3.0 ULTRA+ 修复】跳过已去重的曲目
-                path = (track.get('file_path') or '').replace('\\', '/').lower()
-                if path not in seen_paths:
-                    seen_paths.add(path)
+                # [V36.0 Fix] 深度去重并标准化路径 (Backslash for Rekordbox Windows)
+                original_path = track.get('original_path') or track.get('file_path', '')
+                try:
+                    normalized_path = str(Path(original_path).resolve())
+                except:
+                    normalized_path = original_path
+                
+                path_key = normalized_path.lower()
+                if path_key not in seen_paths:
+                    seen_paths.add(path_key)
                     
                     duration = 0  # M3U不需要精确时长
                     m3u_lines.append(f"#EXTINF:{duration},{track['artist']} - {track['title']}")
-                    m3u_lines.append(track['file_path'])
+                    m3u_lines.append(normalized_path)
             
             # 如果不是最后一个set，添加过渡歌曲作为分割标识
             if set_idx < len(sets):
@@ -7270,31 +7328,21 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
         # [PRO FIX] 确保 clean_name 在 XML 停用后仍然可用（用于 Master 报告）
         clean_name = "".join([c for c in playlist_display_name if c.isalpha() or c.isdigit() or c==' ' or c=='_']).rstrip()
         
-        # [DEACTIVATED] 生成 Rekordbox XML (按用户要求停用)
-        # try:
-        #     print("  正在生成 Rekordbox XML...")
-        #     for i, set_tracks in enumerate(sets):
-        #         # 【Phase 8】为每首歌生成专业 HotCues (A-G)
-        #         if HOTCUE_GENERATOR_ENABLED:
-        #             for track in set_tracks:
-        #                 # 强鲁棒性校验
-        #                 if not isinstance(track, dict): continue
-        #                 
-        #                 # 如果已经在 [Phase 12.1] 生成过，则跳过以防递归偏移
-        #                 if track.get('pro_hotcues'):
-        #                     continue
-        #
-        #         xml_file = output_dir / f"{clean_name}_Set{i+1}_{timestamp}.xml"
-        #         export_to_rekordbox_xml(set_tracks, xml_file, playlist_name=f"{clean_name}_Set{i+1}")
-        #         try:
-        #             print(f"  ✓ XML已导出: {xml_file.name}")
-        #         except:
-        #             print(f"  XML exported: {xml_file.name}")
-        # except Exception as e:
-        #     try:
-        #         print(f"  无法生成 XML: {e}")
-        #     except:
-        #         print(f"  XML export failed: {e}")
+        # [V36.0] 恢复 Rekordbox XML 导出 (用户最稳妥的选择)
+        try:
+            print("  正在生成 Rekordbox XML (PRO 模式)...")
+            for i, set_tracks in enumerate(sets):
+                xml_file = output_dir / f"{clean_name}_Set{i+1}_{timestamp}.xml"
+                export_to_rekordbox_xml(set_tracks, xml_file, playlist_name=f"{clean_name}_Set{i+1}")
+                try:
+                    print(f"  ✓ XML已导出: {xml_file.name}")
+                except:
+                    print(f"  XML exported: {xml_file.name}")
+        except Exception as e:
+            try:
+                print(f"  无法生成 XML: {e}")
+            except:
+                print(f"  XML export failed: {e}")
 
         try:
             try:

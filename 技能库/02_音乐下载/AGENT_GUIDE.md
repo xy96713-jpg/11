@@ -31,6 +31,11 @@ description: 全自动音乐下载专家。支持“给歌名即下载”，自�
 - **严禁事项**: **禁止调用 YouTube** (严防低码率、MV 杂音)。
 - **强制完形**: 集成 iTunes API 与 MusicBrainz，强制嵌入 1000x1000 高清封面，导出 ID3 v2.3。
 
+### 轨道 C: 封面智理 (Agentic Cover Intel)
+- **Agent Vision**: 当接收到截图，应调用视觉模型定位 `NewJeans - ETA` 等关键词。
+- **Local Fidelity**: 搜索封面时，必须优先检索 `D:\song`，如存在同名 `.png` 或 `_cover.png`，严禁转码，直接拷贝以保留原图最高清晰度。
+- **Standalone Mode**: 如用户仅需封面，调用 `standalone_cover_extractor.py`。
+
 ---
 
 ## 3. 调用协议 (Modular Core)
@@ -41,4 +46,8 @@ description: 全自动音乐下载专家。支持“给歌名即下载”，自�
 ---
 
 ## 4. 为什么不用 YouTube？
-本技能坚守 **“非视频转录”** 金标（V8.6 Gold Standard）。YouTube 音频存在码率虚标、MV 杂音及声场压缩等致命问题。通过 Waterfall 架构，我们实现了“曲库全”与“音质绝”的完美统一。
+本技能坚守 **“非视频转录”** 金标（V8.6 Gold Standard）。YouTube 音频存在码率虚标、MV 杂音及声场压缩等致命问题。
+
+## 5. 常见维护指令
+- 提取封面: `python scripts/standalone_cover_extractor.py "关键词" --output "D:\视频文件\视频图片"`
+- 更新元数据: `python scripts/perfect_metadata.py <文件路径>`
