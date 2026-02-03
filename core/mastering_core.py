@@ -83,10 +83,19 @@ class MasteringAnalyzer:
             
             for dim_name, tags in dimension_map.items():
                 print(f"  [Audit] Profiling dimension: {dim_name} ({len(tags)} probes)...", flush=True)
-                # 2. Get Text Embeddings for the entire dimension
-                text_embeds = self.clap_model.get_text_embedding(tags)
-                if isinstance(text_embeds, torch.Tensor):
-                    text_embeds = text_embeds.cpu().numpy()
+                
+                # 2. Get Text Embeddings in chunks to avoid CUDA errors/memory spikes
+                chunk_size = 50
+                all_text_embeds = []
+                for i in range(0, len(tags), chunk_size):
+                    chunk = tags[i:i + chunk_size]
+                    # print(f"    - Processing probe chunk {i//chunk_size + 1}...", flush=True)
+                    text_embed_chunk = self.clap_model.get_text_embedding(chunk)
+                    if isinstance(text_embed_chunk, torch.Tensor):
+                        text_embed_chunk = text_embed_chunk.cpu().numpy()
+                    all_text_embeds.append(text_embed_chunk)
+                
+                text_embeds = np.vstack(all_text_embeds)
                 print(f"  ✓ {dim_name} text embeddings generated.", flush=True)
                 
                 # 3. Compute Similarity (Cosine Dot Product)
@@ -94,24 +103,25 @@ class MasteringAnalyzer:
                 
                 # 4. Filter Top Results
                 k = 3 if dim_name in ["genres", "instruments"] else 2
-                # Ensure we handle numpy sorting correctly
                 top_indices = np.argsort(similarities)[-k:][::-1].tolist()
                 
                 dim_hits = []
                 for idx in top_indices:
                     score = float(similarities[idx])
-                    if score > 0.05: # Lowered threshold slightly for God Mode niche probes
+                    if score > 0.05:
                         dim_hits.append({
                             "tag": str(tags[idx]),
                             "score": round(score, 3)
                         })
                 dna_results[dim_name] = dim_hits
-                print(f"  ✓ {dim_name} hits: {[h['tag'] for h in dim_hits]}", flush=True)
+                # print(f"  ✓ {dim_name} hits: {[h['tag'] for h in dim_hits]}", flush=True)
             
             return dna_results
             
         except Exception as e:
-            print(f"  [Error] God Mode DNA Extraction failed for {file_path}: {e}")
+            import traceback
+            print(f"  [Error] God Mode DNA Extraction failed: {e}", flush=True)
+            traceback.print_exc()
             return {"error": str(e)}
 
     def full_audit(self, file_path: str) -> Dict:
