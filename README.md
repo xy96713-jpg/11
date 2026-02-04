@@ -1,4 +1,4 @@
-# 🤖 Antigravity 智能体技能中心 (Antigravity Skills - V8.9 Updated)
+# 🤖 Antigravity 智能体技能中心 (Antigravity Skills - V9.0 Final)
 
 您的专属智能体“大脑”仓库。这里存放着所有经过优化的 AI 技能模块。
 
