@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +8,7 @@
     <link rel="stylesheet" href="index.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
+
 <body>
     <div class="bg-mesh">
         <div class="orb orb-1"></div>
@@ -27,7 +29,7 @@
                     <span class="card-tag">Audio Input</span>
                     <h2 class="card-title">音频投递区</h2>
                     <p class="card-desc">支持 MP3, WAV, FLAC | 自动执行人声脱壳</p>
-                    
+
                     <div class="drop-zone" id="drop-zone">
                         <i class="fas fa-cloud-upload-alt upload-icon"></i>
                         <p>拖拽混音音频至此，或 <span>点击浏览</span></p>
@@ -62,17 +64,31 @@
 
             <div class="options-section bento-card">
                 <div class="card-content">
-                    <span class="card-tag">Engine Config</span>
-                    <h2 class="card-title">专业参数</h2>
+                    <span class="card-tag">Mastermind Config</span>
+                    <h2 class="card-title">最强大脑增强</h2>
                     <div class="control-group">
                         <label>重叠忽略阈值</label>
-                        <input type="range" min="0" max="100" value="85" class="slider">
-                        <span class="value-display">85% (高精度)</span>
+                        <input type="range" min="0" max="100" value="95" class="slider" id="threshold-slider">
+                        <span class="value-display" id="threshold-display">95% (极高精度)</span>
+                    </div>
+                    <div class="control-group switch-group">
+                        <label class="switch-label">
+                            <input type="checkbox" id="mashup-mode" checked>
+                            <span class="slider-round"></span>
+                            Mashup 模式 (MDX-Net 深度分离)
+                        </label>
+                    </div>
+                    <div class="control-group switch-group">
+                        <label class="switch-label">
+                            <input type="checkbox" id="search-boost" checked>
+                            <span class="slider-round"></span>
+                            全网歌词指纹增强 (Skill 01/06)
+                        </label>
                     </div>
                     <div class="control-group">
-                        <label>处理模式</label>
+                        <label>处理引擎</label>
                         <select class="custom-select">
-                            <option value="cuda">GPU 加速 (CUDA)</option>
+                            <option value="cuda">GPU MDX-Net (推奨)</option>
                             <option value="cpu">标准模式 (CPU)</option>
                         </select>
                     </div>
@@ -98,4 +114,5 @@
 
     <script src="main.js"></script>
 </body>
+
 </html>

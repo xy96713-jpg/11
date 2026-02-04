@@ -1,0 +1,7 @@
+audio-separator[gpu]
+faster-whisper
+httpx
+beautifulsoup4
+torch
+torchaudio
+numpy
