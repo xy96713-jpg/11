@@ -5546,9 +5546,9 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
         
         if not tracks_raw:
             try:
-                print("播放列表为空")
+                print(f"警告: 播放列表 '{playlist_name}' (ID: {playlist_id}) 中没有找到任何音轨 (tracks_raw 为空)")
             except:
-                print("Playlist is empty")
+                print("Playlist is empty (tracks_raw is None or empty)")
             await db.disconnect()
             return
         
@@ -5601,19 +5601,35 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
             file_path = track.file_path if hasattr(track, 'file_path') else None
             
             if not file_path or not os.path.exists(file_path):
-                # 【接口收敛】强制使用标准化追踪工具代替手动猜测
-                track_title = getattr(track, 'title', '') or getattr(track, 'Title', '')
-                if track_title:
-                    found = smart_find_track(track_title)
-                    if found:
-                        file_path = found[0]
-                        print(f"  [RefinedFinder] Redirected to: {file_path}")
+                # [Drive Remapping Fix] 自动映射 E: -> D: (V14 补丁)
+                if file_path and file_path.startswith('E:'):
+                    remapped_path = file_path.replace('E:', 'D:', 1)
+                    if os.path.exists(remapped_path):
+                        file_path = remapped_path
+                        # print(f"  [Remap] E: -> D: {file_path}")
+                
+                if not file_path or not os.path.exists(file_path):
+                    # 【接口收敛】强制使用标准化追踪工具代替手动猜测
+                    track_title = getattr(track, 'title', '') or getattr(track, 'Title', '')
+                    if track_title:
+                        # 如果文件不存在，至少尝试在 D:\song 或特定目录下查找
+                        potential_paths = [
+                            os.path.join(r"D:\song", os.path.basename(file_path)) if file_path else None,
+                            os.path.join(r"D:\Dance\Tracks\Nu Disco House", os.path.basename(file_path)) if file_path else None
+                        ]
+                        found_path = False
+                        for pp in [p for p in potential_paths if p]:
+                            if os.path.exists(pp):
+                                file_path = pp
+                                found_path = True
+                                break
+                        
+                        if not found_path:
+                            # print(f"  [DEBUG] 跳过歌曲: {track_title} (文件不存在: {file_path})")
+                            return (idx, None, False, False)
                     else:
-                        print(f"  [DEBUG] 跳过歌曲: {track_title} (文件不存在且找不回: {file_path})")
+                        # print(f"  [DEBUG] 跳过 ID={true_content_id} (无路径且无标题)")
                         return (idx, None, False, False)
-                else:
-                    print(f"  [DEBUG] 跳过 ID={true_content_id} (无路径且无标题)")
-                    return (idx, None, False, False)
             
             db_bpm = track.bpm if hasattr(track, 'bpm') and track.bpm else None
             
@@ -5923,6 +5939,7 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
             # 按原始顺序排序
             track_results.sort(key=lambda x: x[0])
             tracks = [tr[1] for tr in track_results]
+            print(f"DEBUG: Final tracks count after analysis: {len(tracks)}")
             
         except ImportError:
             # 如果concurrent.futures不可用，回退到串行分析
