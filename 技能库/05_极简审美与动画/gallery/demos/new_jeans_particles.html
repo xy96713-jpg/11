@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visual Workstation V3.0 (Professional Edition)</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;600&display=swap');
+
+        :root {
+            --accent: #5dade2;
+            --bg: #020208;
+            --panel: rgba(15, 15, 25, 0.7);
+        }
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg);
+            overflow: hidden;
+            font-family: 'Outfit', sans-serif;
+            color: white;
+        }
+
+        #canvas-bg,
+        #canvas-main {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #canvas-bg {
+            z-index: 1;
+            filter: blur(1px);
+        }
+
+        #canvas-main {
+            z-index: 2;
+        }
+
+        /* 控制面板样式 - 玻璃拟态 */
+        #ui-panel {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 280px;
+            background: var(--panel);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 20px;
+            z-index: 100;
+            transform: translateX(300px);
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        #ui-panel.open {
+            transform: translateX(0);
+        }
+
+        #panel-toggle {
+            position: fixed;
+            top: 25px;
+            right: 25px;
+            width: 40px;
+            height: 40px;
+            background: var(--accent);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            z-index: 101;
+            box-shadow: 0 0 20px var(--accent);
+            transition: 0.3s;
+        }
+
+        #panel-toggle:hover {
+            transform: scale(1.1);
+        }
+
+        .section-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--accent);
+            margin-bottom: 15px;
+            opacity: 0.8;
+            border-bottom: 1px solid rgba(93, 173, 226, 0.2);
+            padding-bottom: 5px;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            margin-bottom: 10px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+
+        .btn-upload {
+            display: block;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px dashed rgba(255, 255, 255, 0.2);
+            padding: 12px;
+            text-align: center;
+            border-radius: 8px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .btn-upload:hover {
+            background: rgba(93, 173, 226, 0.1);
+            border-color: var(--accent);
+        }
+
+        /* 隐藏的文件输入 */
+        #file-input {
+            display: none;
+        }
+
+        /* 状态显示 */
+        #hud {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            opacity: 0.4;
+            font-size: 10px;
+            letter-spacing: 1px;
+            line-height: 1.8;
+            pointer-events: none;
+        }
+
+        /* 启动层 */
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            cursor: pointer;
+            transition: 0.8s;
+        }
+
+        #overlay h1 {
+            font-size: 3rem;
+            letter-spacing: 10px;
+            background: linear-gradient(45deg, #fff, var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 0.6;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 1;
+                transform: scale(1.02);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="overlay">
+        <h1>WORKSTATION V3.0</h1>
+    </div>
+
+    <div id="panel-toggle">⚙️</div>
+
+    <div id="ui-panel">
+        <div class="section-title">Physics Engine</div>
+        <div class="control-group">
+            <div class="control-label">Density <span id="v-density">4</span></div>
+            <input type="range" id="c-density" min="2" max="10" step="1" value="4">
+        </div>
+        <div class="control-group">
+            <div class="control-label">Friction <span id="v-friction">0.94</span></div>
+            <input type="range" id="c-friction" min="0.8" max="0.99" step="0.01" value="0.94">
+        </div>
+
+        <div class="section-title">Audio Dynamic</div>
+        <div class="control-group">
+            <div class="control-label">Sensitivity <span id="v-sensitivity">2.0</span></div>
+            <input type="range" id="c-sensitivity" min="0" max="10" step="0.5" value="2.0">
+        </div>
+
+        <div class="section-title">Custom Asset</div>
+        <div class="control-group">
+            <label class="btn-upload" for="file-input">
+                📁 UPLOAD CUSTOM LOGO
+            </label>
+            <input type="file" id="file-input" accept="image/*">
+        </div>
+
+        <div style="font-size: 9px; opacity:0.3; text-align:center;">V3.0 | ANTIGRAVITY POWERED</div>
+    </div>
+
+    <div id="hud">
+        CORE: ACTIVE<br>
+        PARTICLES: <span id="h-count">0</span><br>
+        AUDIO_LINK: <span id="h-audio">WAIT</span>
+    </div>
+
+    <canvas id="canvas-bg"></canvas>
+    <canvas id="canvas-main"></canvas>
+
+    <script>
+        const CONFIG = {
+            density: 4,
+            friction: 0.94,
+            sensitivity: 2.0,
+            starCount: 200,
+            defaultText: "NEWJEANS"
+        };
+
+        const bgCtx = document.getElementById('canvas-bg').getContext('2d');
+        const mainCtx = document.getElementById('canvas-main').getContext('2d');
+        const panel = document.getElementById('ui-panel');
+        const toggle = document.getElementById('panel-toggle');
+        const fileInput = document.getElementById('file-input');
+
+        let width, height;
+        let particles = [];
+        let stars = [];
+        let audioContext, analyzer, dataArray;
+        let isStarted = false;
+        let bassFactor = 0;
+        let mouse = { x: -1000, y: -1000 };
+        let currentMode = "TEXT";
+        let capturedImage = null;
+
+        /**
+         * INITIALIZATION
+         */
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            bgCtx.canvas.width = width;
+            bgCtx.canvas.height = height;
+            mainCtx.canvas.width = width;
+            mainCtx.canvas.height = height;
+            initSystem();
+        }
+
+        window.addEventListener('resize', resize);
+        window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+
+        /**
+         * UI CONTROLS
+         */
+        toggle.onclick = () => panel.classList.toggle('open');
+
+        function updateUIValues() {
+            document.getElementById('v-density').textContent = CONFIG.density;
+            document.getElementById('v-friction').textContent = CONFIG.friction;
+            document.getElementById('v-sensitivity').textContent = CONFIG.sensitivity;
+        }
+
+        document.getElementById('c-density').oninput = (e) => { CONFIG.density = parseInt(e.target.value); updateUIValues(); initSystem(); };
+        document.getElementById('c-friction').oninput = (e) => { CONFIG.friction = parseFloat(e.target.value); updateUIValues(); };
+        document.getElementById('c-sensitivity').oninput = (e) => { CONFIG.sensitivity = parseFloat(e.target.value); updateUIValues(); };
+
+        /**
+         * FILE UPLOAD (Dynamic Swap)
+         */
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    capturedImage = img;
+                    currentMode = "IMAGE";
+                    initSystem();
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        };
+
+        /**
+         * CORE ENGINE: PARTICLE GENERATOR
+         */
+        function initSystem() {
+            initStars();
+
+            const scanner = document.createElement('canvas');
+            const sCtx = scanner.getContext('2d');
+            scanner.width = width;
+            scanner.height = height;
+
+            if (currentMode === "IMAGE" && capturedImage) {
+                const ratio = Math.min(width * 0.7 / capturedImage.width, height * 0.7 / capturedImage.height);
+                const iw = capturedImage.width * ratio;
+                const ih = capturedImage.height * ratio;
+                sCtx.drawImage(capturedImage, (width - iw) / 2, (height - ih) / 2, iw, ih);
+            } else {
+                sCtx.fillStyle = "white";
+                sCtx.font = `bold ${Math.min(width, height) * 0.16}px Outfit`;
+                sCtx.textAlign = "center";
+                sCtx.textBaseline = "middle";
+                sCtx.fillText(CONFIG.defaultText, width / 2, height / 2);
+            }
+
+            const data = sCtx.getImageData(0, 0, width, height).data;
+            const newParticles = [];
+            for (let y = 0; y < height; y += CONFIG.density) {
+                for (let x = 0; x < width; x += CONFIG.density) {
+                    const idx = (y * width + x) * 4;
+                    if (data[idx + 3] > 128) {
+                        newParticles.push(new Particle(x, y));
+                    }
+                }
+            }
+            particles = newParticles;
+            document.getElementById('h-count').textContent = particles.length;
+        }
+
+        class Star {
+            constructor() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.size = Math.random() * 2;
+                this.speed = 0.2 + Math.random() * 0.5;
+                this.alpha = Math.random();
+            }
+            update() {
+                this.y += this.speed;
+                if (this.y > height) this.y = 0;
+                this.alpha += (Math.random() - 0.5) * 0.05;
+                this.alpha = Math.max(0.1, Math.min(1, this.alpha));
+            }
+            draw() {
+                bgCtx.fillStyle = `rgba(255, 255, 255, ${this.alpha})`;
+                bgCtx.beginPath();
+                bgCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                bgCtx.fill();
+            }
+        }
+
+        function initStars() {
+            stars = [];
+            for (let i = 0; i < CONFIG.starCount; i++) stars.push(new Star());
+        }
+
+        class Particle {
+            constructor(x, y) {
+                this.ox = x; this.oy = y;
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.vx = 0; this.vy = 0;
+                this.size = 2;
+            }
+            update() {
+                const dx = this.ox - this.x;
+                const dy = this.oy - this.y;
+
+                // 音频扰动
+                const jitter = bassFactor * (Math.random() - 0.5) * 10 * CONFIG.sensitivity;
+                this.vx += dx * 0.1 + jitter;
+                this.vy += dy * 0.1 + jitter;
+
+                // 鼠标斥力
+                const mdx = this.x - mouse.x;
+                const mdy = this.y - mouse.y;
+                const dist = mdx * mdx + mdy * mdy;
+                if (dist < 15000) {
+                    const f = (15000 - dist) / 15000;
+                    this.vx += mdx * f * 2;
+                    this.vy += mdy * f * 2;
+                }
+
+                this.vx *= CONFIG.friction;
+                this.vy *= CONFIG.friction;
+                this.x += this.vx;
+                this.y += this.vy;
+            }
+            draw() {
+                mainCtx.fillStyle = "#ffffff";
+                mainCtx.fillRect(this.x, this.y, this.size, this.size);
+            }
+        }
+
+        /**
+         * AUDIO & LOOP
+         */
+        document.getElementById('overlay').onclick = async () => {
+            document.getElementById('overlay').style.opacity = '0';
+            setTimeout(() => document.getElementById('overlay').style.display = 'none', 800);
+
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyzer = audioContext.createAnalyser();
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const source = audioContext.createMediaStreamSource(stream);
+                source.connect(analyzer);
+                dataArray = new Uint8Array(analyzer.frequencyBinCount);
+                document.getElementById('h-audio').textContent = "LIVE";
+                document.getElementById('h-audio').style.color = "#00ff00";
+            } catch (e) {
+                document.getElementById('h-audio').textContent = "DENIED";
+            }
+            isStarted = true;
+        };
+
+        function animate() {
+            bgCtx.clearRect(0, 0, width, height);
+            stars.forEach(s => { s.update(); s.draw(); });
+
+            if (isStarted && analyzer) {
+                analyzer.getByteFrequencyData(dataArray);
+                let sum = 0;
+                for (let i = 0; i < 10; i++) sum += dataArray[i];
+                bassFactor = sum / 2550;
+            }
+
+            mainCtx.fillStyle = 'rgba(2, 2, 8, 0.2)';
+            mainCtx.fillRect(0, 0, width, height);
+            particles.forEach(p => { p.update(); p.draw(); });
+
+            requestAnimationFrame(animate);
+        }
+
+        resize();
+        animate();
+    </script>
+</body>
+
+</html>

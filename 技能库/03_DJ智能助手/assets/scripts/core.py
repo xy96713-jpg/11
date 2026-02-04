@@ -46,14 +46,14 @@ class MashupIntelligence:
         s2 = track2.get('analysis', track2)
         
         # --- 1. BPM & Perceptual Speed (25%) ---
-        bpm1 = s1.get('bpm', 0)
-        bpm2 = s2.get('bpm', 0)
+        bpm1 = s1.get('bpm') or 0
+        bpm2 = s2.get('bpm') or 0
         
         # 获取感官特征
-        od1 = s1.get('onset_density', 0.5)
-        od2 = s2.get('onset_density', 0.5)
-        busy1 = s1.get('busy_score', 0.5)
-        busy2 = s2.get('busy_score', 0.5)
+        od1 = s1.get('onset_density') or 0.5
+        od2 = s2.get('onset_density') or 0.5
+        busy1 = s1.get('busy_score') or 0.5
+        busy2 = s2.get('busy_score') or 0.5
         
         bpm_score = 0.0
         if bpm1 and bpm2:
@@ -104,8 +104,8 @@ class MashupIntelligence:
         details['key'] = f"{weighted_key:.1f}/15 ({h_desc})"
 
         # --- 3. Stems 互补强化 (25%) ---
-        v1 = s1.get('vocal_ratio', 0.5)
-        v2 = s2.get('vocal_ratio', 0.5)
+        v1 = s1.get('vocal_ratio') or 0.5
+        v2 = s2.get('vocal_ratio') or 0.5
         v_diff = abs(v1 - v2)
         
         if (v1 > 0.6 and v2 < 0.4) or (v2 > 0.6 and v1 < 0.4):
@@ -121,14 +121,14 @@ class MashupIntelligence:
         # --- 4. 频谱掩蔽与音色 Vibe (20%) ---
         vibe_score = 0.0
         # 4.1 [V7.0] 能量峰值匹配 (Energy Peak Matching)
-        en1 = s1.get('energy', 50)
-        en2 = s2.get('energy', 50)
+        en1 = s1.get('energy') or 50
+        en2 = s2.get('energy') or 50
         energy_match = 1.0 - abs(en1 - en2) / 100.0
         if energy_match > 0.8: vibe_score += 5.0
         
         # 4.2 音色人格识别 (Spectral Identity)
-        tb1 = [s1.get('tonal_balance_low', 0.5), s1.get('tonal_balance_mid', 0.3), s1.get('tonal_balance_high', 0.2)]
-        tb2 = [s2.get('tonal_balance_low', 0.5), s2.get('tonal_balance_mid', 0.3), s2.get('tonal_balance_high', 0.2)]
+        tb1 = [s1.get('tonal_balance_low') or 0.5, s1.get('tonal_balance_mid') or 0.3, s1.get('tonal_balance_high') or 0.2]
+        tb2 = [s2.get('tonal_balance_low') or 0.5, s2.get('tonal_balance_mid') or 0.3, s2.get('tonal_balance_high') or 0.2]
         tonal_dist = sum((a - b) ** 2 for a, b in zip(tb1, tb2)) ** 0.5
         tonal_sim = max(0, 1.0 - tonal_dist * 2.0)
         vibe_score += tonal_sim * 10
@@ -137,7 +137,7 @@ class MashupIntelligence:
         b1, b2 = s1.get('spectral_bands', {}), s2.get('spectral_bands', {})
         if b1 and b2:
             # 1. Sub-Bass 对冲审计 (防止能量过载)
-            sb1, sb2 = b1.get('sub_bass', 0.1), b2.get('sub_bass', 0.1)
+            sb1, sb2 = b1.get('sub_bass') or 0.1, b2.get('sub_bass') or 0.1
             if sb1 > 0.6 and sb2 > 0.6:
                 vibe_score -= 8.0 # 重度低频冲突惩罚
                 details['bass_clash'] = "⚠️ 强力 Sub-Bass 冲突 (建议大幅切除一侧 EQ)"
@@ -145,13 +145,13 @@ class MashupIntelligence:
                 vibe_score -= 3.0 # 中度低频堆叠
             
             # 2. 中频掩蔽审计 (人声/器乐清爽度)
-            mid1, mid2 = b1.get('mid_range', 0.4), b2.get('mid_range', 0.4)
+            mid1, mid2 = b1.get('mid_range') or 0.4, b2.get('mid_range') or 0.4
             masking = mid1 * mid2
             # 掩蔽得分映射：范围 0.0-1.0，映射到 0-7 分
             vibe_score += max(-5.0, 7.0 * (1.0 - masking * 2.5))
             
             # 3. 高频平衡
-            hi1, hi2 = b1.get('high_presence', 0.2), b2.get('high_presence', 0.2)
+            hi1, hi2 = b1.get('high_presence') or 0.2, b2.get('high_presence') or 0.2
             if abs(hi1 - hi2) < 0.1:
                 vibe_score += 2.0 # 同步亮度加分
 

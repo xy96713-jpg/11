@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>城市流态感知系统 - PRO V1 (Ultra HD / 8K Export)</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #050505; font-family: 'JetBrains Mono', monospace; }
+        canvas { display: block; width: 100%; height: 100%; } /* 確保 Canvas 填滿螢幕 */
+
+        /* --- UI 样式 --- */
+        #panel-toggle {
+            position: absolute; top: 20px; left: 20px; z-index: 100;
+            background: rgba(0, 0, 0, 0.8); border: 1px solid rgba(255, 255, 255, 0.6);
+            color: #FFFFFF; padding: 8px 12px; cursor: pointer; font-size: 14px; transition: all 0.3s;
+        }
+        #panel-toggle:hover { background: rgba(255, 255, 255, 0.2); }
+
+        #control-panel {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 380px;
+            background: rgba(10, 10, 10, 0.95); backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.4); padding: 20px;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.8); z-index: 99; display: none;
+            color: #ddd; font-size: 12px; border-radius: 4px;
+        }
+        #control-panel h3 { margin: 0 0 15px 0; color: #FFFFFF; text-align: center; border-bottom: 1px solid rgba(255, 255, 255, 0.3); padding-bottom: 10px; letter-spacing: 2px; }
+
+        .control-group { margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
+        .control-group label { width: 90px; color: #888; }
+        .control-group input[type=range] { flex: 1; margin: 0 10px; cursor: pointer; }
+        .control-group span { width: 35px; text-align: right; color: #FFF; }
+
+        input[type=range] { -webkit-appearance: none; background: transparent; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 14px; width: 14px; background: #FFFFFF; border-radius: 50%; margin-top: -5px; box-shadow: 0 0 5px rgba(255,255,255,0.8); }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: rgba(255, 255, 255, 0.2); border-radius: 2px; }
+
+        .section-title { color: #fff; background: rgba(255, 255, 255, 0.15); padding: 4px 8px; margin: 15px 0 8px 0; font-weight: bold; font-size: 11px; letter-spacing: 1px; }
+
+        .btn-group { display: flex; gap: 8px; margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 15px; flex-wrap: wrap;}
+        .action-btn { flex: 1 1 40%; padding: 10px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.5); color: #fff; cursor: pointer; text-align: center; font-family: inherit; font-weight: bold; font-size: 11px; transition: all 0.2s; white-space: nowrap; }
+        .action-btn:hover { background: rgba(255, 255, 255, 0.3); color: #fff; }
+        
+        .action-btn.active { background: #FF3300; border-color: #FF3300; }
+        .action-btn.svg { background: #00AAFF; border-color: #00AAFF; }
+        .action-btn.hd-img { background: #00CC44; border-color: #00CC44; color: #000; } /* 绿色按钮 */
+        .action-btn.record { border-color: #FF0044; color: #FF0044; }
+        
+        .action-btn.record.recording { background: #FF0044; color: #FFF; border-color: #FF0044; animation: pulse-red 1.5s infinite; }
+        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(255, 0, 68, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(255, 0, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 0, 68, 0); } }
+
+        #rec-indicator { position: absolute; top: 20px; right: 20px; display: none; align-items: center; gap: 8px; color: #FF0044; font-weight: bold; font-size: 14px; z-index: 100; text-shadow: 0 0 10px rgba(255, 0, 68, 0.5); }
+        #rec-dot { width: 12px; height: 12px; background: #FF0044; border-radius: 50%; animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
+
+    </style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+
+<div id="panel-toggle">OPEN_CONTROLS [TAB]</div>
+
+<div id="rec-indicator"><div id="rec-dot"></div><span>REC</span></div>
+
+<div id="control-panel">
+    <h3>系统参数配置 (SYSTEM CONFIG)</h3>
+    <div class="section-title">>> 动态模型 (DYNAMICS)</div>
+    <div class="control-group"><label>节点上限 (Max)</label><input type="range" id="p_maxNodes" min="10" max="100" value="35"><span id="v_maxNodes">35</span></div>
+    <div class="control-group"><label>最小流速 (Min)</label><input type="range" id="p_speedMin" min="1" max="20" step="0.5" value="1.5"><span id="v_speedMin">1.5</span></div>
+    <div class="control-group"><label>最大流速 (Max)</label><input type="range" id="p_speedMax" min="5" max="50" step="1" value="12"><span id="v_speedMax">12</span></div>
+    <div class="section-title">>> 物理属性 (PHYSICS)</div>
+    <div class="control-group"><label>基础大小 (Base)</label><input type="range" id="p_sizeBase" min="0.5" max="3.0" step="0.1" value="1.0"><span id="v_sizeBase">1.0</span></div>
+    <div class="control-group"><label>强度系数 (Int)</label><input type="range" id="p_intensity" min="0.5" max="5.0" step="0.1" value="1.8"><span id="v_intensity">1.8</span></div>
+    <div class="section-title">>> 渲染设置 (RENDER)</div>
+    <div class="control-group"><label>起始色相 (Start)</label><input type="range" id="p_hueStart" min="0" max="360" value="0"><span id="v_hueStart">0</span></div>
+    <div class="control-group"><label>色相跨度 (Range)</label><input type="range" id="p_hueRange" min="0" max="180" value="150"><span id="v_hueRange">150</span></div>
+    <div class="control-group"><label>饱和度 (Sat)</label><input type="range" id="p_sat" min="0" max="100" value="80"><span id="v_sat">80</span></div>
+    <div class="control-group"><label>最大透明 (Alpha)</label><input type="range" id="p_alpha" min="0.1" max="1.0" step="0.05" value="0.9"><span id="v_alpha">0.9</span></div>
+    
+    <div class="btn-group">
+        <button id="btn-pause" class="action-btn">暂停 (PAUSE)</button>
+        <button id="btn-record" class="action-btn record">录制视频 (REC)</button>
+        <button id="btn-svg" class="action-btn svg">导出 SVG</button>
+        <button id="btn-hd" class="action-btn hd-img">导出 8K 图像</button>
+    </div>
+    <button id="close-panel" class="action-btn" style="width:100%; margin-top:10px; border:none; background:transparent; font-size:10px; color:#888;">[ 关闭面板 / CLOSE ]</button>
+</div>
+
+<script>
+    // --- C2S_Lite_AI: SVG 生成核心 (用于 SVG 导出) ---
+    class C2S_Lite_AI {
+        constructor(width, height) {
+            this.width = width; this.height = height; this.buffer = []; this.defs = []; this.defIdCount = 0;
+            this.state = { fillStyle: '#000000', strokeStyle: '#000000', lineWidth: 1, font: '10px sans-serif', textAlign: 'start', textBaseline: 'alphabetic', globalAlpha: 1, transform: {x: 0, y: 0} };
+            this.stateStack = []; this.currentPath = '';
+            this.buffer.push(`<?xml version="1.0" encoding="utf-8"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg version="1.1" xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xml:space="preserve"><rect id="Canvas_Background" width="${width}" height="${height}" fill="#050505"/>`);
+        }
+        beginLayer(name) { this.buffer.push(`<g id="${name}">`); }
+        endLayer() { this.buffer.push(`</g>`); }
+        save() { this.stateStack.push(JSON.parse(JSON.stringify(this.state))); }
+        restore() { if (this.stateStack.length > 0) { this.state = this.stateStack.pop(); } }
+        translate(x, y) { this.state.transform.x += x; this.state.transform.y += y; }
+        beginPath() { this.currentPath = ''; }
+        moveTo(x, y) { this.currentPath += `M${this.tX(x).toFixed(2)},${this.tY(y).toFixed(2)} `; }
+        lineTo(x, y) { this.currentPath += `L${this.tX(x).toFixed(2)},${this.tY(y).toFixed(2)} `; }
+        arc(x, y, r, start, end) { if (Math.abs(end - start) >= Math.PI * 2 - 0.1) { const cx = this.tX(x), cy = this.tY(y); this.currentPath += `M${(cx+r).toFixed(2)},${cy.toFixed(2)} A${r.toFixed(2)},${r.toFixed(2)} 0 1 0 ${(cx-r).toFixed(2)},${cy.toFixed(2)} A${r.toFixed(2)},${r.toFixed(2)} 0 1 0 ${(cx+r).toFixed(2)},${cy.toFixed(2)} `; } }
+        stroke() { if (!this.currentPath) return; const {color, opacity} = this.parseColor(this.state.strokeStyle); const totalAlpha = this.state.globalAlpha * opacity; this.buffer.push(`<path d="${this.currentPath}" fill="none" stroke="${color}" stroke-width="${this.state.lineWidth}" stroke-opacity="${totalAlpha.toFixed(3)}" stroke-linecap="round" stroke-linejoin="round"/>`); this.currentPath = ''; }
+        fill() { if (!this.currentPath) return; const style = this.state.fillStyle; let fillAttr = ''; if (typeof style === 'object' && style.isGradient) { fillAttr = `fill="url(#${style.id})" fill-opacity="${this.state.globalAlpha}"`; } else { const {color, opacity} = this.parseColor(style); const totalAlpha = this.state.globalAlpha * opacity; fillAttr = `fill="${color}" fill-opacity="${totalAlpha.toFixed(3)}"`; } this.buffer.push(`<path d="${this.currentPath}" ${fillAttr} stroke="none"/>`); this.currentPath = ''; }
+        strokeRect(x, y, w, h) { const {color, opacity} = this.parseColor(this.state.strokeStyle); const totalAlpha = this.state.globalAlpha * opacity; this.buffer.push(`<rect x="${this.tX(x)}" y="${this.tY(y)}" width="${w}" height="${h}" fill="none" stroke="${color}" stroke-width="${this.state.lineWidth}" stroke-opacity="${totalAlpha.toFixed(3)}"/>`); }
+        fillRect(x, y, w, h) { const style = this.state.fillStyle; let fillAttr = ''; if (typeof style === 'object' && style.isGradient) { fillAttr = `fill="url(#${style.id})" fill-opacity="${this.state.globalAlpha}"`; } else { const {color, opacity} = this.parseColor(style); const totalAlpha = this.state.globalAlpha * opacity; fillAttr = `fill="${color}" fill-opacity="${totalAlpha.toFixed(3)}"`; } this.buffer.push(`<rect x="${this.tX(x)}" y="${this.tY(y)}" width="${w}" height="${h}" ${fillAttr}/>`); }
+        fillText(text, x, y) { const {color, opacity} = this.parseColor(this.state.fillStyle); const totalAlpha = this.state.globalAlpha * opacity; let anchor = 'start'; if (this.state.textAlign === 'center') anchor = 'middle'; if (this.state.textAlign === 'right') anchor = 'end'; let fontSize = 10; const fontMatch = this.state.font.match(/(\d+)px/); if(fontMatch) fontSize = fontMatch[1]; this.buffer.push(`<text x="${this.tX(x)}" y="${this.tY(y)}" fill="${color}" fill-opacity="${totalAlpha.toFixed(3)}" font-family="'Courier New', monospace" font-size="${fontSize}" text-anchor="${anchor}">${this.escape(text)}</text>`); }
+        createLinearGradient(x0, y0, x1, y1) { const id = 'grad_' + (this.defIdCount++); const gradObj = { id: id, isGradient: true, stops: [], pos: {x0:this.tX(x0), y0:this.tY(y0), x1:this.tX(x1), y1:this.tY(y1)} }; this.defs.push(gradObj); return { id: id, isGradient: true, addColorStop: function(offset, color) { gradObj.stops.push({offset, color}); } }; }
+        tX(x) { return x + this.state.transform.x; } tY(y) { return y + this.state.transform.y; } escape(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); } setLineDash() {}
+        parseColor(colorStr) { if (!colorStr) return {color: '#000000', opacity: 1}; colorStr = colorStr.trim(); if (colorStr.startsWith('hsl')) { const match = colorStr.match(/hsla?\(\s*([\d\.]+)\s*,\s*([\d\.]+)%\s*,\s*([\d\.]+)%\s*(?:,\s*([\d\.]+))?\s*\)/); if (match) { const h = parseFloat(match[1]), s = parseFloat(match[2]), l = parseFloat(match[3]), a = match[4] !== undefined ? parseFloat(match[4]) : 1; return { color: this.hslToHex(h, s, l), opacity: a }; } } if (colorStr.startsWith('rgb')) { const match = colorStr.match(/rgba?\(\s*([\d\.]+)\s*,\s*([\d\.]+)\s*,\s*([\d\.]+)\s*(?:,\s*([\d\.]+))?\s*\)/); if (match) { const r = parseInt(match[1]), g = parseInt(match[2]), b = parseInt(match[3]), a = match[4] !== undefined ? parseFloat(match[4]) : 1; return { color: this.rgbToHex(r, g, b), opacity: a }; } } return {color: colorStr, opacity: 1}; }
+        hslToHex(h, s, l) { l /= 100; const a = s * Math.min(l, 1 - l) / 100; const f = n => { const k = (n + h / 30) % 12; const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1); return Math.round(255 * color).toString(16).padStart(2, '0'); }; return `#${f(0)}${f(8)}${f(4)}`; }
+        rgbToHex(r, g, b) { return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1); }
+        getSerializedSvg() { let defsStr = ''; if(this.defs.length > 0) { defsStr += '<defs>'; this.defs.forEach(g => { defsStr += `<linearGradient id="${g.id}" x1="${g.pos.x0}" y1="${g.pos.y0}" x2="${g.pos.x1}" y2="${g.pos.y1}" gradientUnits="userSpaceOnUse">`; g.stops.forEach(s => { defsStr += `<stop offset="${s.offset}" stop-color="${s.color}"/>`; }); defsStr += `</linearGradient>`; }); defsStr += '</defs>'; } if(defsStr) this.buffer.splice(3, 0, defsStr); this.buffer.push('</svg>'); return this.buffer.join('\n'); }
+    }
+    ['fillStyle', 'strokeStyle', 'lineWidth', 'font', 'textAlign', 'textBaseline', 'globalAlpha'].forEach(prop => { Object.defineProperty(C2S_Lite_AI.prototype, prop, { get: function() { return this.state[prop]; }, set: function(val) { this.state[prop] = val; } }); });
+
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d', { alpha: false }); // 优化性能
+    
+    // --- 核心：HiDPI 支持 ---
+    // 獲取設備像素比，Retina 屏通常為 2 或 3
+    let dpr = window.devicePixelRatio || 1;
+    let width, height, time = 0;
+    const ANGLE = Math.PI / 3, SIN60 = Math.sin(ANGLE), COS60 = Math.cos(ANGLE);
+    let isPaused = false;
+
+    const params = {
+        maxNodes: 35, speedMin: 1.5, speedMax: 12, sizeBase: 1.0, intensity: 1.8,
+        hueStart: 0, hueRange: 150, saturation: 80, alphaMax: 0.9, rotationSpeed: 0.03
+    };
+
+    const settings = {
+        gridSize: 13, baseSpeed: 0.25, spawnInterval: 6,
+        bgGrid: { majorStep: 20, midStep: 10, styles: [[1.5, 0.25], [0.8, 0.12], [0.4, 0.05]] },
+        ui: { axisColor: 'rgba(255, 255, 255, 0.6)', textColor: '#FFFFFF', axisFont: '700 24px "JetBrains Mono"', cornerFont: '700 16px "JetBrains Mono"', hudFont: '700 10px "JetBrains Mono"' }
+    };
+
+    let activeClicks = [];
+    let lastSpawnTime = 0;
+
+    // --- UI Controls ---
+    const panel = document.getElementById('control-panel');
+    const toggleBtn = document.getElementById('panel-toggle');
+    const closeBtn = document.getElementById('close-panel');
+    const btnPause = document.getElementById('btn-pause');
+    const btnSVG = document.getElementById('btn-svg');
+    const btnHD = document.getElementById('btn-hd');
+    const btnRecord = document.getElementById('btn-record');
+    const recIndicator = document.getElementById('rec-indicator');
+    
+    let isPanelOpen = false;
+
+    function togglePanel() { isPanelOpen = !isPanelOpen; panel.style.display = isPanelOpen ? 'block' : 'none'; toggleBtn.style.display = isPanelOpen ? 'none' : 'block'; }
+    toggleBtn.addEventListener('click', togglePanel); closeBtn.addEventListener('click', togglePanel);
+    document.addEventListener('keydown', (e) => { if(e.code==='Tab'){e.preventDefault();togglePanel();} if(e.code==='Space'){e.preventDefault();togglePause();} });
+    function togglePause() { isPaused = !isPaused; btnPause.textContent = isPaused ? "RESUME" : "PAUSE"; btnPause.classList.toggle('active', isPaused); }
+    btnPause.addEventListener('click', togglePause);
+
+    // --- Video Recording Logic (Ultra HD Update) ---
+    let mediaRecorder; let recordedChunks = []; let isRecording = false;
+    function toggleRecord() { if (isRecording) { stopRecording(); } else { startRecording(); } }
+    function startRecording() {
+        // 直接捕捉高分屏 Canvas，解析度依賴於物理像素
+        const stream = canvas.captureStream(60);
+        
+        // 手機相容性優化：優先嘗試 MP4 (H.264) 格式
+        // 注意：Firefox 可能僅支援 WebM，Safari/Chrome/Edge 通常支援 MP4
+        const mimeTypes = [
+            "video/mp4",
+            "video/mp4;codecs=avc1", 
+            "video/mp4;codecs=h264",
+            "video/webm;codecs=h264", 
+            "video/webm;codecs=vp9", 
+            "video/webm"
+        ];
+        
+        let selectedMimeType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type));
+        
+        if (!selectedMimeType) { 
+            alert("您的瀏覽器不支持錄製功能。請嘗試使用 Chrome, Edge 或 Safari。"); 
+            return; 
+        }
+
+        // 畫質優化：位元率狂暴模式 (80 Mbps)
+        try { 
+            mediaRecorder = new MediaRecorder(stream, { 
+                mimeType: selectedMimeType, 
+                videoBitsPerSecond: 80000000 // 80 Mbps
+            }); 
+        } catch (e) { 
+            console.error(e); 
+            alert("錄製初始化失敗，請檢查瀏覽器設置。");
+            return; 
+        }
+        
+        mediaRecorder.ondataavailable = function(event) { if (event.data.size > 0) recordedChunks.push(event.data); };
+        mediaRecorder.onstop = function() {
+            const blob = new Blob(recordedChunks, { type: selectedMimeType }); recordedChunks = [];
+            const url = URL.createObjectURL(blob); const a = document.createElement("a"); document.body.appendChild(a); a.style = "display: none"; a.href = url;
+            
+            // 根據選擇的 MIME 類型決定副檔名
+            const ext = selectedMimeType.includes("mp4") ? "mp4" : "webm"; 
+            a.download = `CityFlow_Mobile_${new Date().toISOString().replace(/[:.]/g, '-')}.${ext}`;
+            
+            a.click(); window.URL.revokeObjectURL(url); document.body.removeChild(a);
+        };
+        mediaRecorder.start(); isRecording = true; btnRecord.textContent = "STOP"; btnRecord.classList.add("recording"); recIndicator.style.display = "flex";
+        if (isPaused) togglePause();
+    }
+    function stopRecording() { mediaRecorder.stop(); isRecording = false; btnRecord.textContent = "REC VIDEO"; btnRecord.classList.remove("recording"); recIndicator.style.display = "none"; }
+    btnRecord.addEventListener('click', toggleRecord);
+
+    // --- SVG Export Logic ---
+    function exportSVG() {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const filename = `CityFlow_Export_${timestamp}.svg`;
+        const svgCtx = new C2S_Lite_AI(width, height); 
+        drawScene(svgCtx); // SVG 使用邏輯像素，保持不變
+        const svgString = svgCtx.getSerializedSvg();
+        const blob = new Blob([svgString], {type: 'image/svg+xml;charset=utf-8'});
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url; link.download = filename;
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        const originalText = btnSVG.textContent; btnSVG.textContent = "SAVED!"; setTimeout(() => btnSVG.textContent = "SVG", 1500);
+    }
+    btnSVG.addEventListener('click', exportSVG);
+
+    // --- Ultra HD Image Export Logic (4x Scale) ---
+    function exportHDImage() {
+        const originalText = btnHD.textContent;
+        btnHD.textContent = "RENDERING...";
+        
+        // 使用 4倍 超採樣 (8K級別)
+        const scaleFactor = 4; 
+        const hdCanvas = document.createElement('canvas');
+        // 注意：這裡使用邏輯寬度 * 縮放倍數
+        hdCanvas.width = width * scaleFactor;
+        hdCanvas.height = height * scaleFactor;
+        const hdCtx = hdCanvas.getContext('2d');
+        
+        // 縮放上下文，使所有繪製指令自動放大
+        hdCtx.scale(scaleFactor, scaleFactor);
+        
+        // 繪製
+        drawScene(hdCtx);
+        
+        hdCanvas.toBlob(function(blob) {
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `CityFlow_8K_${timestamp}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            
+            btnHD.textContent = "SAVED!";
+            setTimeout(() => btnHD.textContent = "4X HD IMG", 1500);
+        }, 'image/png', 1.0); // 1.0 = 最高質量
+    }
+    btnHD.addEventListener('click', exportHDImage);
+
+
+    // Bind Inputs
+    ['maxNodes', 'speedMin', 'speedMax', 'sizeBase', 'intensity', 'hueStart', 'hueRange', 'sat', 'alpha'].forEach(key => {
+        const paramKey = key === 'sat' ? 'saturation' : (key === 'alpha' ? 'alphaMax' : key);
+        const el = document.getElementById('p_' + key);
+        const valDisplay = document.getElementById('v_' + key);
+        if(el) { el.addEventListener('input', (e) => { const val = parseFloat(e.target.value); params[paramKey] = val; valDisplay.textContent = val; }); }
+    });
+
+    // --- 核心：HiDPI Resize 邏輯 ---
+    function resize() { 
+        // 1. 獲取邏輯尺寸 (CSS 像素)
+        width = window.innerWidth; 
+        height = window.innerHeight; 
+        
+        // 2. 設置物理尺寸 (考慮 DPR)
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+        
+        // 3. 強制 CSS 尺寸保持不變
+        canvas.style.width = width + "px";
+        canvas.style.height = height + "px";
+        
+        // 4. 縮放主上下文，讓後續繪圖邏輯依然使用 CSS 像素坐標
+        ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resize); 
+    resize();
+
+    function addClickEvent(x, y, isAuto = false) {
+        const isMajorHub = Math.random() > 0.85; 
+        const safeMax = Math.max(params.speedMax, params.speedMin + 1);
+        const speedBase = isMajorHub ? (params.speedMin + Math.random()*(safeMax-params.speedMin)*0.3) : (params.speedMin + Math.random()*(safeMax-params.speedMin));      
+        const powerBase = isMajorHub ? (1.4 + Math.random() * 0.6) : (0.5 + Math.random() * 0.7);
+        const power = powerBase * params.sizeBase;
+        const normalizedSpeed = (speedBase - params.speedMin) / (safeMax - params.speedMin); 
+        let targetHue = params.hueStart + normalizedSpeed * params.hueRange + (Math.random() * 20 - 10);
+        targetHue = targetHue % 360;
+
+        activeClicks.push({
+            id: (isMajorHub ? 'HUB-' : 'U-') + Math.random().toString(36).substr(2, 4).toUpperCase(),
+            x, y, startT: time, waveSpeed: speedBase,
+            pulseWidth: 140 * power, rippleLife: 150 * power, fadeLife: 120 * power,
+            intensity: power * params.intensity, baseHue: targetHue,
+            startAngle: Math.random() * Math.PI * 2, rotDir: Math.random() > 0.5 ? 1 : -1
+        });
+    }
+
+    // --- Drawing Functions ---
+    function drawBackgroundGrid(renderCtx, cx, cy, range) {
+        if(renderCtx instanceof C2S_Lite_AI) renderCtx.beginLayer("Grid_Layer"); 
+        const s = settings.gridSize; const cfg = settings.bgGrid; const drawRange = range + 5;
+        for (let lvl = 0; lvl <= 2; lvl++) {
+            renderCtx.beginPath(); renderCtx.lineWidth = cfg.styles[lvl][0]; renderCtx.strokeStyle = `rgba(255, 255, 255, ${cfg.styles[lvl][1]})`;
+            for (let j = -drawRange; j <= drawRange; j++) {
+                const rowOffsetY = j * s * SIN60; if (cy + rowOffsetY < -50 || cy + rowOffsetY > height + 50) continue;
+                const rowOffsetX = j * s * COS60; const lvlJ = (Math.abs(j) % cfg.majorStep === 0) ? 0 : (Math.abs(j) % cfg.midStep === 0 ? 1 : 2);
+                if (lvlJ === lvl) { for (let i = -drawRange; i <= drawRange; i++) { const sx = cx + i * s + rowOffsetX; const sy = cy + rowOffsetY; if (i < drawRange) { renderCtx.moveTo(sx, sy); renderCtx.lineTo(sx + s, sy); } } }
+                for (let i = -drawRange; i <= drawRange; i++) { const absI = Math.abs(i); const lvlI = (absI % cfg.majorStep === 0) ? 0 : (absI % cfg.midStep === 0 ? 1 : 2); if (lvlI === lvl && j < drawRange) { const sx = cx + i * s + rowOffsetX; const sy = cy + rowOffsetY; renderCtx.moveTo(sx, sy); renderCtx.lineTo(sx + s * COS60, sy + s * SIN60); } }
+            }
+            renderCtx.stroke();
+        }
+        if(renderCtx instanceof C2S_Lite_AI) renderCtx.endLayer();
+    }
+
+    function drawSpiral(renderCtx, click, age, opacity) {
+        renderCtx.beginPath(); renderCtx.strokeStyle = `hsla(${click.baseHue}, ${params.saturation}%, 50%, ${opacity * 0.5})`; renderCtx.moveTo(click.x, click.y);
+        const segments = 50; const currentR = Math.min(age * click.waveSpeed, click.rippleLife * click.waveSpeed);
+        for (let i = 0; i <= segments; i++) { const ratio = i / segments; const r = ratio * currentR; const theta = click.startAngle + (ratio * age * params.rotationSpeed * click.rotDir); renderCtx.lineTo(click.x + r * Math.cos(theta), click.y + r * Math.sin(theta)); }
+        renderCtx.stroke();
+    }
+
+    function drawTextGroup(renderCtx, lines, x, y, align, baseline) {
+        renderCtx.textAlign = align; renderCtx.textBaseline = baseline; const lh = 28;
+        lines.forEach((line, i) => { const py = (baseline === 'bottom') ? y - (lines.length - 1 - i) * lh : y + i * lh; renderCtx.fillText(line, x, py); });
+    }
+
+    function drawScene(renderCtx) {
+        // 清空背景：因為已經縮放了 context，這裡的 width/height (邏輯像素) 足以覆蓋全屏
+        // 注意：對於主畫布 ctx，dpr 縮放已經生效
+        if (renderCtx === ctx || renderCtx.canvas) { 
+            renderCtx.fillStyle = '#050505'; 
+            renderCtx.fillRect(0, 0, width, height); 
+        }
+        
+        const cx = width / 2, cy = height / 2; const diag = Math.sqrt(width*width + height*height); const range = Math.ceil(diag / settings.gridSize * 0.6); 
+
+        // 1. Grid
+        drawBackgroundGrid(renderCtx, cx, cy, range);
+
+        // 2. Axis
+        if(renderCtx instanceof C2S_Lite_AI) renderCtx.beginLayer("Axis_Layer");
+        renderCtx.save(); renderCtx.strokeStyle = settings.ui.axisColor; renderCtx.lineWidth = 1.2; renderCtx.beginPath();
+        const lineLen = Math.max(width, height); renderCtx.moveTo(cx - lineLen * COS60, cy - lineLen * SIN60); renderCtx.lineTo(cx + lineLen * COS60, cy + lineLen * SIN60); renderCtx.moveTo(0, cy); renderCtx.lineTo(width, cy);
+        for(let d = -250; d <= 250; d += 50) { if(d === 0) continue; let dx = d * COS60, dy = d * SIN60; renderCtx.moveTo(cx + dx - 5, cy + dy); renderCtx.lineTo(cx + dx + 5, cy + dy); renderCtx.moveTo(cx + d, cy - 5); renderCtx.lineTo(cx + d, cy + 5); }
+        renderCtx.stroke();
+        renderCtx.font = settings.ui.axisFont; renderCtx.fillStyle = settings.ui.textColor;
+        drawTextGroup(renderCtx, ["SEC_CTRL", "LIVE_EDIT"], cx - 180 * COS60, cy - 180 * SIN60, 'right', 'bottom');
+        drawTextGroup(renderCtx, ["NODES", activeClicks.length.toString()], cx + 180 * COS60, cy + 180 * SIN60, 'left', 'top');
+        renderCtx.restore();
+        if(renderCtx instanceof C2S_Lite_AI) renderCtx.endLayer();
+
+        // 3. Heatmap
+        if(renderCtx instanceof C2S_Lite_AI) renderCtx.beginLayer("Heatmap_Layer");
+        const s = settings.gridSize; const hRange = Math.ceil(width / s); const startJ = -Math.ceil(cy / (s*SIN60)) - 2;  const endJ = Math.ceil((height - cy) / (s*SIN60)) + 2;
+        for (let j = startJ; j <= endJ; j++) {
+            const rowY = cy + j * s * SIN60; const rowXOff = j * s * COS60;
+            for (let i = -hRange; i <= hRange; i++) {
+                const sx = cx + i * s + rowXOff; if (sx < -20 || sx > width + 20) continue;
+                let accInfluence = 0; let hueVecX = 0, hueVecY = 0, totalWeight = 0;
+                activeClicks.forEach(c => {
+                    const age = time - c.startT; if (age < 0 || age > c.rippleLife) return;
+                    const dx = sx - c.x, dy = rowY - c.y; const distSq = dx*dx + dy*dy; const maxR = c.rippleLife * c.waveSpeed + c.pulseWidth; if (distSq > maxR * maxR) return;
+                    const dist = Math.sqrt(distSq); const curR = age * c.waveSpeed; const p = Math.max(0, 1 - Math.abs(dist - curR) / c.pulseWidth);
+                    const distDecay = Math.max(0, 1 - (curR / (c.rippleLife * c.waveSpeed * 1.2))); const weight = (p * p) * distDecay * c.intensity;
+                    if (weight > 0.01) { accInfluence += weight; const rad = c.baseHue * (Math.PI / 180); hueVecX += Math.cos(rad) * weight; hueVecY += Math.sin(rad) * weight; totalWeight += weight; }
+                });
+                if (accInfluence > 0.05) {
+                    let finalHue = 0; if (totalWeight > 0) { finalHue = Math.atan2(hueVecY, hueVecX) * (180 / Math.PI); if (finalHue < 0) finalHue += 360; }
+                    const lightness = 30 + Math.min(60, accInfluence * 40); const alpha = Math.min(params.alphaMax, accInfluence * 1.2);
+                    renderCtx.fillStyle = `hsla(${finalHue}, ${params.saturation}%, ${lightness}%, ${alpha})`;
+                    const displaySize = 1 + Math.min(1.2, accInfluence) * (s - 2); const hs = displaySize / 2;
+                    renderCtx.beginPath(); renderCtx.moveTo(sx - hs - hs*COS60, rowY - hs*SIN60); renderCtx.lineTo(sx + hs - hs*COS60, rowY - hs*SIN60); renderCtx.lineTo(sx + hs + hs*COS60, rowY + hs*SIN60); renderCtx.lineTo(sx - hs + hs*COS60, rowY + hs*SIN60); renderCtx.fill();
+                }
+            }
+        }
+        if(renderCtx instanceof C2S_Lite_AI) renderCtx.endLayer();
+
+        // 4. Data HUD
+        if(renderCtx instanceof C2S_Lite_AI) renderCtx.beginLayer("HUD_Layer");
+        activeClicks.forEach(c => {
+            const age = time - c.startT; if (age > c.rippleLife + c.fadeLife) return; const alpha = age < c.rippleLife ? 1 : 1 - (age-c.rippleLife)/c.fadeLife;
+            if(age < c.rippleLife) { drawSpiral(renderCtx, c, age, alpha); }
+            renderCtx.fillStyle = `hsla(${c.baseHue}, ${params.saturation}%, 70%, ${alpha})`; renderCtx.beginPath(); renderCtx.arc(c.x, c.y, 2.5, 0, Math.PI * 2); renderCtx.fill();
+            if (alpha > 0.2) { renderCtx.save(); renderCtx.translate(c.x, c.y); renderCtx.strokeStyle = `hsla(${c.baseHue}, 20%, 90%, ${alpha * 0.7})`; renderCtx.lineWidth = 1; renderCtx.beginPath(); renderCtx.moveTo(5, -5); renderCtx.lineTo(15, -15); renderCtx.lineTo(65, -15); renderCtx.stroke(); renderCtx.font = settings.ui.hudFont; renderCtx.fillStyle = `rgba(255, 255, 255, ${alpha})`; renderCtx.fillText(c.id, 18, -19); renderCtx.fillText(`V:${c.waveSpeed.toFixed(1)}`, 18, -6); renderCtx.restore(); }
+        });
+        
+        // Static UI
+        drawStaticUI(renderCtx);
+        if(renderCtx instanceof C2S_Lite_AI) renderCtx.endLayer();
+    }
+
+    function drawStaticUI(renderCtx) {
+        renderCtx.save(); renderCtx.font = settings.ui.cornerFont; renderCtx.fillStyle = settings.ui.textColor; renderCtx.fillText(`URBAN_SPECTRAL_EDITOR`, 30, 40);
+        renderCtx.beginPath(); renderCtx.strokeStyle = 'rgba(255,255,255,0.4)'; renderCtx.moveTo(30, 50); renderCtx.lineTo(220, 50); renderCtx.stroke();
+        const legendW = 150; const gradient = renderCtx.createLinearGradient(30, 60, 30 + legendW, 60);
+        gradient.addColorStop(0, `hsl(${params.hueStart}, 100%, 60%)`); gradient.addColorStop(1, `hsl(${(params.hueStart + params.hueRange)%360}, 100%, 60%)`); 
+        renderCtx.fillStyle = gradient; renderCtx.fillRect(30, 55, legendW, 4);
+        renderCtx.font = "10px 'JetBrains Mono'"; renderCtx.fillStyle = "#AAA"; renderCtx.fillText("SLOW", 30, 72); renderCtx.fillText("FAST", 30 + legendW - 25, 72);
+        if(renderCtx === ctx && !isPanelOpen) { renderCtx.textAlign = 'center'; renderCtx.fillStyle = 'rgba(255, 255, 255, 0.4)'; renderCtx.fillText("[ PRESS TAB TO CONFIGURE ]", width/2, height - 30); }
+        renderCtx.restore();
+    }
+
+    function loop() {
+        if (!isPaused) { time += settings.baseSpeed; if (time - lastSpawnTime > settings.spawnInterval && activeClicks.length < params.maxNodes) { addClickEvent(Math.random() * width, Math.random() * height, true); lastSpawnTime = time; } activeClicks = activeClicks.filter(c => time - c.startT < c.rippleLife + c.fadeLife); }
+        drawScene(ctx); requestAnimationFrame(loop);
+    }
+    canvas.addEventListener('mousedown', e => { if(isPanelOpen) { const rect = panel.getBoundingClientRect(); if(e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) return; } addClickEvent(e.clientX, e.clientY); if(isPaused) drawScene(ctx); });
+    canvas.addEventListener('touchstart', e => { if(isPanelOpen) return; e.preventDefault(); const t = e.touches[0]; addClickEvent(t.clientX, t.clientY); if(isPaused) drawScene(ctx); }, {passive: false});
+    loop();
+</script>
+</body>
+</html>

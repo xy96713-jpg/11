@@ -618,9 +618,10 @@ def detect_key_system(key: str) -> str:
     return "unknown"
 
 
-def auto_group_by_bpm(tracks: List[Dict], max_bpm_range: float = 25.0) -> List[List[Dict]]:
+def auto_group_by_bpm(tracks: List[Dict], max_bpm_range: float = 25.0, is_live: bool = False) -> List[List[Dict]]:
     """
     自动按BPM分组，确保每组内BPM跨度不超过max_bpm_range
+    [Intelligence-V14] 追加直播模式优化：支持更宽的合并范围
     
     算法：
     1. 按BPM排序所有歌曲
@@ -676,17 +677,21 @@ def auto_group_by_bpm(tracks: List[Dict], max_bpm_range: float = 25.0) -> List[L
         groups[mid_group_idx].extend(tracks_without_bpm)
     
     # 合并过小的组（少于5首），但要检查BPM差距
+    # [Intelligence-V14] 直播模式大幅降低碎片化：放宽合并阈值
     merged_groups = []
+    min_group_size = 5 if not is_live else 15
+    merge_threshold = 15 if not is_live else 35
+    
     for group in groups:
-        if len(group) < 5 and merged_groups:
+        if len(group) < min_group_size and merged_groups:
             # 检查与前一组的BPM差距
             prev_bpms = [t.get('bpm', 0) for t in merged_groups[-1] if t.get('bpm')]
             curr_bpms = [t.get('bpm', 0) for t in group if t.get('bpm')]
             
             if prev_bpms and curr_bpms:
                 bpm_gap = min(curr_bpms) - max(prev_bpms)
-                # 只有BPM差距小于15才合并，否则保持独立
-                if bpm_gap <= 15:
+                # 直播模式下允许更大的跳跃（如 128 -> 170 的转场）
+                if bpm_gap <= merge_threshold:
                     merged_groups[-1].extend(group)
                     continue
             else:
@@ -5358,6 +5363,7 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
                                 def __init__(self, id, name):
                                     self.id = id
                                     self.name = name
+                                    self.is_folder = False
                             target_playlist = PlaylistObj(test_id, f"Playlist {test_id}")
                             playlist_id = test_id
                             break
@@ -5438,6 +5444,7 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
                             def __init__(self, id, name):
                                 self.id = id
                                 self.name = name
+                                self.is_folder = False
                         target_playlist = PlaylistObj(test_id, f"Playlist {test_id}")
                         playlist_id = test_id
                         break
@@ -6216,7 +6223,7 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
             except:
                 print("\n[BPM Grouping] Auto-grouping by BPM...")
             
-            bpm_groups = auto_group_by_bpm(tracks, max_bpm_range=25.0)
+            bpm_groups = auto_group_by_bpm(tracks, max_bpm_range=45.0 if is_live else 25.0, is_live=is_live)
         
         try:
             print(f"[BPM分组] 自动分成 {len(bpm_groups)} 个BPM区间:")
@@ -6252,60 +6259,54 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
                 print(f"[Master] 正在进行全局连贯排序 (共 {len(bpm_group)} 首)...")
                 global_sorted_tracks, _, _ = enhanced_harmonic_sort(bpm_group, len(bpm_group), is_boutique=is_boutique)
                 
-                # 【Boutique 修正】精品模式下，不进行全量切分，而是只取前 30-45 首的最佳组合
                 if is_boutique:
-                    try:
-                        print(f"[Boutique] 精品模式生效：正在从 {len(global_sorted_tracks)} 首候选曲中甄选最佳 Set (目标 30-45 首)...")
-                    except:
-                        print(f"[Boutique] Mode Active: Selecting best 30-45 tracks from {len(global_sorted_tracks)} candidates...")
-                    
-                    # 目标范围
-                    min_target = 30
-                    max_target = 45
-                    
-                    # 如果总数不足，就全要
-                    if len(global_sorted_tracks) <= max_target:
-                        print(f"   - 候选不足 {max_target} 首，保留全量 {len(global_sorted_tracks)} 首")
-                        final_cut = global_sorted_tracks
+                    # 【Boutique 优化】精品模式下，默认生成1个高品质Set（35-60首，视总数而定）
+                    # 如果列表很大（如 79 首），依然甄选出最核心的 35-50 首组成一个精品 Set
+                    total_count = len(global_sorted_tracks)
+                    if total_count <= 60:
+                        min_target = max(15, total_count // 2)
+                        max_target = total_count
                     else:
-                        # 智能截断：在 30-45 之间寻找最佳 Outro 点
-                        # 扫描区间 [30, 45] (索引 29 到 44)
-                        best_cut_idx = max_target
-                        max_tail_score = -9999
+                        min_target = 35
+                        max_target = 55
                         
-                        scan_start = min(len(global_sorted_tracks), min_target)
-                        scan_end = min(len(global_sorted_tracks), max_target + 1)
-                        
-                        for i in range(scan_start, scan_end):
-                            # 检查切断点的"完结感" (比如是否进入了 Cool-down，或者 key 比较稳)
-                            track = global_sorted_tracks[i-1] # 最后一首
-                            score = 0
-                            
-                            # 优先选择 Cool-down 或 Intense 结束
-                            phase = track.get('assigned_phase', '')
-                            if phase == 'Cool-down': score += 20
-                            elif phase == 'Intense': score += 10 # 强力收尾
-                            
-                            # 检查是否是"桥接曲" (不建议在桥接曲结束)
-                            if track.get('is_bridge'): score -= 50
-                            
-                            if score > max_tail_score:
-                                max_tail_score = score
-                                best_cut_idx = i
-                        
-                        print(f"   - 智能截断：选定 {best_cut_idx} 首 (Score: {max_tail_score})")
-                        final_cut = global_sorted_tracks[:best_cut_idx]
+                    try:
+                        print(f"[Boutique] 精品模式生效：正在从 {total_count} 首候选曲中甄选核心精品 Set (目标 {min_target}-{max_target} 首)...")
+                    except:
+                        pass
                     
-                    # 【Dual Mode】将 Boutique Set 加入列表，并标记为特殊，但不退出循环
-                    # 为了区分，我们在 tracks 列表的第一个元素的 metadata 里打个标，或者外部结构打标
-                    # 这里简单的将其作为第一个 Set 加入
-                    # 并在第一个 track 注入特殊标记，供 Report 识别
+                    # 智能截断：在区间内寻找最佳 Outro 点
+                    best_cut_idx = min(total_count, max_target)
+                    max_tail_score = -9999
+                    
+                    scan_start = min(total_count, min_target)
+                    scan_end = min(total_count, max_target + 1)
+                    
+                    for i in range(scan_start, scan_end):
+                        track = global_sorted_tracks[i-1]
+                        score = 0
+                        phase = track.get('assigned_phase', '')
+                        if phase == 'Cool-down': score += 20
+                        elif phase == 'Intense': score += 10
+                        if track.get('is_bridge'): score -= 50
+                        
+                        if score > max_tail_score:
+                            max_tail_score = score
+                            best_cut_idx = i
+                    
+                    print(f"   - 精品甄选完成：选定 {best_cut_idx} 首 (Score: {max_tail_score})")
+                    final_cut = global_sorted_tracks[:best_cut_idx]
+                    
                     if final_cut:
                          final_cut[0]['is_boutique_start'] = True
                     sets.append(final_cut)
-                    print(f"[Dual Mode] 已生成 Boutique Highlight Set ({len(final_cut)} tracks). 继续生成全量 Live Sets...")
-                    # 以前的 break 被移除，允许继续执行下面的全量切分逻辑
-                    # break
+                    
+                    # 如果仅仅是精品模式（非直播/全量模式），直接结束
+                    if not is_live:
+                        print(f"[Boutique] 精品单体任务完成。共生成 1 个高品质 Set。")
+                        break
+                    else:
+                        print(f"[Dual Mode] 精品精选已完成，继续生成剩余歌曲的直播分段...")
 
                 # 开始智能切分 (普通 Live 模式)
                 print(f"[Master] 正在寻找最佳切分点 (Pivots)...")
