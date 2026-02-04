@@ -31,13 +31,10 @@ for parent in [BASE_DIR] + list(BASE_DIR.parents):
         PROJECT_ROOT = parent
         break
 
-for sub_dir in ["skills", "core", "config", "exporters", "agents"]:
-    target_path = PROJECT_ROOT / sub_dir
-    if not target_path.exists():
-        target_path = BASE_DIR / sub_dir
-    sys.path.insert(0, str(target_path))
+# 添加项目根目录到 sys.path，以便支持 from sub_package import ...
+sys.path.insert(0, str(PROJECT_ROOT))
 
-# 添加 rekordbox-mcp 的父目录支持
+# 添加 rekordbox_mcp 特殊路径支持
 sys.path.insert(0, str(PROJECT_ROOT / "core" / "rekordbox-mcp"))
 
 from exporters.xml_exporter import export_to_rekordbox_xml
@@ -2795,878 +2792,876 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
         # 计算每个候选的得分
         # 注意：LRU缓存已优化兼容性计算（重复生成Set时提升50-70%）
         for track in candidate_tracks:
-            if track.get('_used'):
-                continue
-            
-            next_bpm = float(track.get('bpm') or 0)
-            bpm_diff = abs(current_bpm - next_bpm)
-            
-            # 初始化评分指标
-            metrics = {
-                "bpm_diff": bpm_diff,
-                "key_score": None,
-                "percussive_diff": None,
-                "dyn_var_diff": None,
-                "style_penalty": False,
-                "rhythm_penalty": False,
-                "phase_penalty": False,
-                "missing_profile": False,
-                "fallback": False,
-                "bpm_confidence": None,
-                "key_confidence": None,
-                "groove_density_diff": None,
-                "spectral_centroid_diff": None,
-                "drum_pattern_mismatch": False,
-                "boutique_penalty": 0
-            }
-
-            # ========== 【Boutique】精品模式多级评分机制 (代替硬性拦截) ==========
-            boutique_penalty = 0
-            if is_boutique:
-                # 调性兼容度预计算
-                k_score = get_key_compatibility_flexible(current_track.get('key', ''), track.get('key', ''))
-                energy_diff = abs(float(track.get('energy') or 50) - current_energy)
-                
-                # Tier 1 (Gold): 极致平滑 (BPM diff <= 8, Key Score >= 90, Energy Jump <= 25)
-                # Tier 2 (Silver): 专业标准 (BPM diff <= 12, Key Score >= 75) -> 扣 150 分
-                # Tier 3 (Bronze): 超过专业标准 -> 扣 500 分
-                
-                if bpm_diff <= 8.0 and k_score >= 90 and energy_diff <= 25:
-                    boutique_penalty = 0 # 完美匹配，不扣分
-                elif bpm_diff <= 12.0 and k_score >= 75:
-                    boutique_penalty = 150 # 略有瑕疵，但在专业可接受范围内
-                else:
-                    # 此时已经属于“较难接”的范畴，但在精品模式下作为最后的保底，不推荐使用
-                    boutique_penalty = 500 # 严重扣分，只有在别无选择时才会排入
-            
-            score = -boutique_penalty
-            if is_boutique and boutique_penalty > 0:
-                metrics["boutique_penalty"] = boutique_penalty
-            
-            # 第1优先级：BPM（最高100分）
-            # 【修复】DJ排法：BPM应该逐渐上升或保持，但允许有条件的下降（breakdown过渡）
-            bpm_score = get_bpm_compatibility_flexible(current_bpm, next_bpm)
-            bpm_change = next_bpm - current_bpm  # 正数=上升，负数=下降
-            
-            # 获取能量变化（用于判断是否是breakdown过渡）
-            next_energy = float(track.get('energy') or 50)
-            energy_diff = next_energy - current_energy  # 正数=能量上升，负数=能量下降
-            
-            # 判断是否是breakdown过渡（BPM下降且能量也下降）
-            is_breakdown_transition = (bpm_change < 0 and energy_diff < -5)
-            
-            if bpm_diff <= 2:
-                if bpm_change >= 0:
-                    score += 100  # BPM上升或持平：最高100分
-                else:
-                    if is_breakdown_transition:
-                        score += 90  # Breakdown过渡：允许，轻微奖励
-                    else:
-                        score += 80  # BPM轻微下降（≤2）：轻微惩罚
-            elif bpm_diff <= 4:
-                if bpm_change >= 0:
-                    score += 80  # BPM上升：80分
-                else:
-                    if is_breakdown_transition:
-                        score += 60  # Breakdown过渡：允许，中等奖励
-                    else:
-                        score += 50  # BPM下降：严重惩罚
-            elif bpm_diff <= 6:
-                if bpm_change >= 0:
-                    score += 60  # BPM上升：60分
-                else:
-                    if is_breakdown_transition:
-                        score += 30  # Breakdown过渡：允许，轻微奖励
-                    else:
-                        score += 20  # BPM下降：严重惩罚
-            elif bpm_diff <= 8:
-                if bpm_change >= 0:
-                    score += 40  # BPM上升：40分
-                else:
-                    if is_breakdown_transition:
-                        score += 10  # Breakdown过渡：允许，不扣分
-                    else:
-                        score -= 20  # BPM下降：严重惩罚
-            elif bpm_diff <= 10:
-                if bpm_change >= 0:
-                    score += 20  # BPM上升：20分
-                else:
-                    if is_breakdown_transition:
-                        score -= 20  # Breakdown过渡：允许，轻微惩罚
-                    else:
-                        score -= 60  # BPM下降：极严重惩罚
-            elif bpm_diff <= 12:
-                if bpm_change >= 0:
-                    score += 5  # BPM上升：轻微加分
-                else:
-                    score -= 100  # BPM下降：极严重惩罚
-            elif bpm_diff <= 16:
-                if bpm_change >= 0:
-                    score -= 20  # BPM上升但跨度大：轻微惩罚
-                else:
-                    score -= 150  # BPM下降且跨度大：极严重惩罚
-            elif bpm_diff <= 20:
-                if bpm_change >= 0:
-                    score -= 60  # BPM上升但跨度大：严重惩罚
-                else:
-                    score -= 200  # BPM下降且跨度大：极严重惩罚
-            elif bpm_diff <= 30:
-                if bpm_change >= 0:
-                    score -= 100  # BPM上升但跨度超大：严重惩罚
-                else:
-                    score -= 250  # BPM下降且跨度超大：极严重惩罚
-            else:
-                if bpm_change >= 0:
-                    score -= 160  # BPM上升但跨度极大：极严重惩罚
-                else:
-                    score -= 300  # BPM下降且跨度极大：极严重惩罚
-            
-            key_score = get_key_compatibility_flexible(
-                current_track.get('key', ''),
-                track.get('key', '')
-            )
-            metrics["key_score"] = key_score
-            
-            # 根据歌曲类型动态调整调性权重
-            # 对于快速切换/Drop混音类型的歌曲，调性权重降低
-            current_style = current_track.get('style_hint', '').lower() if current_track.get('style_hint') else ''
-            next_style = track.get('style_hint', '').lower() if track.get('style_hint') else ''
-            current_genre = current_track.get('genre', '').lower() if current_track.get('genre') else ''
-            next_genre = track.get('genre', '').lower() if track.get('genre') else ''
-            
-            # 判断是否是快速切换/Drop混音类型（调性不那么重要）
-            is_fast_switch = False
-            if any(keyword in current_style or keyword in next_style for keyword in ['tech', 'hard', 'fast', 'dance']):
-                is_fast_switch = True
-            if any(keyword in current_genre or keyword in next_genre for keyword in ['tech house', 'hard trance', 'hardstyle']):
-                is_fast_switch = True
-            # 高能量歌曲通常可以快速切换
-            if (current_energy > 70) or (float(track.get('energy') or 50) > 70):
-                is_fast_switch = True
-            
-            # ========== 第2优先级：调性兼容性（修复版，降低权重确保BPM优先） ==========
-            # 专业DJ规则：调性跳跃可以用效果器过渡，BPM匹配应该优先
-            # 计算调性距离（用于判断是否需要严重惩罚）
-            current_key = current_track.get('key', '')
-            next_key = track.get('key', '')
-            key_distance = None
-            
-            # 计算Camelot距离
-            if current_key and next_key:
-                try:
-                    # 提取Camelot编号
-                    curr_num = int(current_key[:-1]) if current_key[:-1].isdigit() else None
-                    next_num = int(next_key[:-1]) if next_key[:-1].isdigit() else None
-                    if curr_num and next_num:
-                        # 计算最短距离（考虑12的循环）
-                        dist1 = abs(next_num - curr_num)
-                        dist2 = 12 - dist1
-                        key_distance = min(dist1, dist2)
-                except:
-                    pass
-            
-            # 调性权重：降低到0.2-0.3（从0.3-0.4降低），确保BPM优先
-            if is_fast_switch:
-                key_weight = 0.2  # 快速切换类型，权重更低
-            else:
-                if key_score >= 100:
-                    key_weight = 0.3  # 完美匹配，最高权重（降低）
-                elif key_score >= 95:
-                    key_weight = 0.25
-                elif key_score >= 85:
-                    key_weight = 0.22
-                else:
-                    key_weight = 0.2
-            
-            # 调性评分：基础评分
-            score += key_score * key_weight
-            
-            # 调性距离惩罚：对于距离≥5的跳跃，进一步降低惩罚（允许但标记为"需技巧过渡"）
-            if key_distance is not None:
-                if key_distance >= 5:
-                    score -= 50  # 距离≥5，中等惩罚（进一步降低从-80到-50，允许但需要技巧）
-                    metrics["key_distance_penalty"] = key_distance
-                    metrics["needs_technique"] = True  # 标记需要技巧过渡
-                elif key_distance >= 4:
-                    score -= 30  # 距离≥4，轻微惩罚（降低从-50到-30）
-                    metrics["key_distance_penalty"] = key_distance
-                elif key_distance >= 3:
-                    score -= 15  # 距离≥3，轻微惩罚（降低从-25到-15）
-                    metrics["key_distance_penalty"] = key_distance
-            
-            # 调性兼容性额外惩罚（进一步降低）
-            if key_score < 40:
-                score -= 10  # 调性完全不兼容，轻微惩罚（降低从-20到-10）
-            elif key_score < 60:
-                score -= 5  # 调性不兼容，轻微惩罚（降低从-10到-5）
-            
-            # 优化：避免连续相同调性（但不要过度惩罚，调性兼容性优先）
-            current_key = current_track.get('key', '')
-            next_key = track.get('key', '')
-            if current_key and next_key and current_key == next_key and current_key != "未知":
-                # 如果调性完全相同，稍微降低分数（但仍然是高分，因为兼容性好）
-                # 检查前面是否也是相同调性
-                if len(sorted_tracks) > 0:
-                    prev_key = sorted_tracks[-1].get('key', '') if len(sorted_tracks) > 0 else ''
-                    if prev_key == current_key:
-                        # 连续三首相同调性，轻微降低分数（从8降到3）
-                        score -= 3
-                    else:
-                        # 只是两首相同，不降低分数（调性兼容性优先）
-                        pass
-            
-            # 第2优先级：能量（根据阶段动态调整权重）
-            energy = float(track.get('energy') or 50)
-            energy_diff = abs(energy - current_energy)
-            
-            # 根据阶段动态调整能量权重
-            # Build-up和Peak阶段更重视能量匹配（提升到40分）
-            if phase_name in ["Build-up", "Peak"]:
-                max_energy_score = 40  # 提升到40分
-                energy_weights = {
-                    5: 40,    # 能量差≤5：40分
-                    10: 27,   # 能量差≤10：27分（40*0.67）
-                    15: 13,   # 能量差≤15：13分（40*0.33）
-                    20: 7,    # 能量差≤20：7分（40*0.17）
-                }
-            else:
-                max_energy_score = 30  # 保持30分
-                energy_weights = {
-                    5: 30,    # 能量差≤5：30分
-                    10: 20,   # 能量差≤10：20分
-                    15: 10,   # 能量差≤15：10分
-                    20: 5,    # 能量差≤20：5分
-                }
-            
-            # 能量匹配度得分（能量差越小，得分越高）
-            if energy_diff <= 5:
-                score += energy_weights[5]
-            elif energy_diff <= 10:
-                score += energy_weights[10]
-            elif energy_diff <= 15:
-                score += energy_weights[15]
-            elif energy_diff <= 20:
-                score += energy_weights[20]
-            else:
-                score -= 5  # 能量差太大，轻微惩罚
-            
-            # 单峰结构约束：检查阶段约束（在能量阶段匹配之前）
-            # 获取候选歌曲的预期阶段
-            candidate_phase = get_energy_phase_target(
-                len(sorted_tracks) + 1, len(tracks), next_bpm, energy, sorted_tracks, track
-            )[2]
-            candidate_phase_num = get_phase_number(candidate_phase)
-            
-            # 检查阶段约束
-            is_valid_phase, phase_penalty = check_phase_constraint(
-                current_phase_num, candidate_phase_num, max_phase_reached, in_cool_down
-            )
-            
-            # 如果违反阶段约束，大幅扣分（强化能量曲线约束）
-            if not is_valid_phase:
-                score += phase_penalty  # phase_penalty已经是负数
-                metrics["phase_constraint_violation"] = True
-            elif phase_penalty < 0:
-                score += phase_penalty  # 轻微违反，扣分但允许
-                metrics["phase_constraint_warning"] = True
-            
-            # 修复：允许小幅能量回落，只惩罚大幅回落
-            # 如果能量回落后再提升（除了Cool-down），根据回落幅度扣分
-            if sorted_tracks and len(sorted_tracks) > 0:
-                recent_phases = [t.get('assigned_phase') for t in sorted_tracks[-5:] if t.get('assigned_phase')]
-                recent_energies = [t.get('energy', 50) for t in sorted_tracks[-5:] if isinstance(t.get('energy'), (int, float))]
-                
-                if recent_phases and recent_energies:
-                    last_phase = recent_phases[-1]
-                    last_phase_num = get_phase_number(last_phase)
-                    candidate_phase_num = get_phase_number(candidate_phase)
-                    
-                    # 计算能量回落幅度
-                    max_energy_reached = max(recent_energies) if recent_energies else 50
-                    energy_regression = max_energy_reached - energy if energy < max_energy_reached else 0
-                    
-                    # 如果能量回落后再提升（已到过Peak或更高，现在又回到更早阶段）
-                    if last_phase_num >= 2 and candidate_phase_num < last_phase_num and candidate_phase != "Cool-down":
-                        if energy_regression <= 5:
-                            # 小幅能量回落（±5能量内），允许，轻微惩罚
-                            score -= 20
-                            metrics["energy_regression_penalty"] = "minor"
-                        elif energy_regression <= 10:
-                            # 中等能量回落（5-10能量），中等惩罚
-                            score -= 50
-                            metrics["energy_regression_penalty"] = "moderate"
-                        else:
-                            # 大幅能量回落（>10能量），严重惩罚
-                            score -= 100
-                            metrics["energy_regression_penalty"] = "severe"
-            
-            # 能量阶段匹配（额外加分）
-            if min_energy <= energy <= max_energy:
-                score += 5  # 能量阶段匹配，额外加分
-            elif energy < min_energy:
-                if phase_name in ["Warm-up", "Cool-down"]:
-                    score += 3
-                else:
-                    score += 1
-            else:
-                if phase_name in ["Peak", "Intense"]:
-                    score += 3
-                elif phase_name == "Cool-down":
-                    score -= 5  # Cool-down阶段能量过高，惩罚
-                else:
-                    score += 1
-            
-            # ========== 【P1优化】张力曲线匹配（配合能量阶段）==========
-            # 检查两首歌的张力走向是否符合当前能量阶段
-            curr_tension = current_track.get('tension_curve')
-            next_tension = track.get('tension_curve')
-            
-            if curr_tension and next_tension and len(curr_tension) > 2 and len(next_tension) > 2:
-                try:
-                    # 计算张力趋势（上升/下降/平稳）
-                    # 取最后30%的张力值来判断趋势
-                    curr_tail = curr_tension[-int(len(curr_tension)*0.3):]
-                    next_head = next_tension[:int(len(next_tension)*0.3)]
-                    
-                    # 计算趋势（线性回归斜率）
-                    curr_trend = (curr_tail[-1] - curr_tail[0]) / len(curr_tail) if len(curr_tail) > 1 else 0
-                    next_trend = (next_head[-1] - next_head[0]) / len(next_head) if len(next_head) > 1 else 0
-                    
-                    # 判断趋势方向
-                    curr_direction = 'up' if curr_trend > 0.01 else ('down' if curr_trend < -0.01 else 'flat')
-                    next_direction = 'up' if next_trend > 0.01 else ('down' if next_trend < -0.01 else 'flat')
-                    
-                    # 根据能量阶段评分（配合Set整体曲线）
-                    if candidate_phase in ["Warm-up", "Build-up"]:
-                        # 上升阶段：鼓励上升趋势
-                        if curr_direction == 'up' and next_direction == 'up':
-                            score += 10  # 情绪递进
-                            metrics["tension_match"] = "rising_phase_rising_tension"
-                        elif curr_direction == 'up' and next_direction == 'down':
-                            score -= 15  # 情绪冲突
-                            metrics["tension_conflict"] = "rising_phase_falling_tension"
-                        elif curr_direction == 'flat' or next_direction == 'flat':
-                            score += 3  # 平稳过渡
-                            metrics["tension_match"] = "neutral"
-                    
-                    elif candidate_phase in ["Peak", "Intense"]:
-                        # 高潮阶段：鼓励平稳或持续高能
-                        if curr_direction == 'flat' and next_direction == 'flat':
-                            score += 10  # 维持高能量
-                            metrics["tension_match"] = "peak_phase_stable_tension"
-                        elif curr_direction == 'up' and next_direction == 'up':
-                            score += 5  # 继续推高
-                            metrics["tension_match"] = "peak_phase_rising_tension"
-                        elif curr_direction == 'down' and next_direction == 'down':
-                            score -= 5  # 过早衰退
-                            metrics["tension_warning"] = "peak_phase_falling_tension"
-                        elif curr_direction == 'flat' or next_direction == 'flat':
-                            score += 3
-                            metrics["tension_match"] = "neutral"
-                    
-                    elif candidate_phase == "Cool-down":
-                        # 收尾阶段：鼓励下降趋势
-                        if curr_direction == 'down' and next_direction == 'down':
-                            score += 10  # 平稳收尾
-                            metrics["tension_match"] = "cooldown_phase_falling_tension"
-                        elif curr_direction == 'up' and next_direction == 'down':
-                            score += 5  # 自然过渡到收尾
-                            metrics["tension_match"] = "cooldown_phase_natural_transition"
-                        elif curr_direction == 'down' and next_direction == 'up':
-                            score -= 10  # 违反收尾逻辑
-                            metrics["tension_conflict"] = "cooldown_phase_rising_tension"
-                        elif curr_direction == 'flat' or next_direction == 'flat':
-                            score += 3
-                            metrics["tension_match"] = "neutral"
-                    
-                    else:
-                        # 其他阶段：方向一致即可
-                        if curr_direction == next_direction:
-                            score += 5
-                            metrics["tension_match"] = "same_direction"
-                        elif curr_direction == 'flat' or next_direction == 'flat':
-                            score += 3
-                            metrics["tension_match"] = "neutral"
-                
-                except Exception:
-                    pass
-            
-            # 律动相似度（基于onset密度）
-            rhythm_similarity = compare_rhythm_similarity(current_track, track)
-            if rhythm_similarity > 0.8:
-                score += 15  # 节奏密度接近，加分
-                metrics["rhythm_similarity"] = rhythm_similarity
-            elif rhythm_similarity < 0.4:
-                score -= 10  # 节奏密度差异太大，扣分
-                metrics["rhythm_similarity"] = rhythm_similarity
-                metrics["rhythm_penalty"] = True
-            else:
-                metrics["rhythm_similarity"] = rhythm_similarity
-            
-            phase_hint = track.get('phase_hint')
-            if isinstance(phase_hint, str):
-                phase_hint = phase_hint.strip().lower()
-                current_phase = phase_name.lower()
-                if phase_hint == current_phase:
-                    score += 15
-                elif (phase_hint == 'warm-up' and current_phase in {'build-up', 'peak', 'intense'}) or (
-                    phase_hint == 'cool-down' and current_phase in {'peak', 'intense'}):
-                    score -= 30
-                    metrics["phase_penalty"] = True
-                elif phase_hint != current_phase:
-                    score -= 12
-                    metrics["phase_penalty"] = True
-            
-            energy_diff = energy - current_track.get('energy', 50)
-            if abs(energy_diff) <= 5:
-                score += 2
-            elif -10 <= energy_diff <= 15:
-                score += 1
-            
-            curr_profile = current_track.get('energy_profile', {})
-            next_profile = track.get('energy_profile', {})
-            if curr_profile and next_profile:
-                curr_percussive = curr_profile.get('percussive_ratio', 0)
-                next_percussive = next_profile.get('percussive_ratio', 0)
-                percussive_diff = abs(curr_percussive - next_percussive)
-                metrics["percussive_diff"] = percussive_diff
-                
-                if percussive_diff < 0.2:
-                    score += 5
-                elif percussive_diff > 0.5:
-                    score -= 15
-                else:
-                    score += (1 - percussive_diff) * 5
-                
-                curr_dyn_var = curr_profile.get('dynamic_variance', 0)
-                next_dyn_var = next_profile.get('dynamic_variance', 0)
-                dyn_var_diff = abs(curr_dyn_var - next_dyn_var)
-                metrics["dyn_var_diff"] = dyn_var_diff
-                if dyn_var_diff < 0.1:
-                    score += 3
-                elif dyn_var_diff > 0.3:
-                    score -= 8
-            else:
-                metrics["missing_profile"] = True
-            
-            curr_style = current_track.get('style_hint')
-            next_style = track.get('style_hint')
-            curr_rhythm = current_track.get('rhythm_hint') or current_track.get('time_signature')
-            next_rhythm = track.get('rhythm_hint') or track.get('time_signature')
-            
-            if curr_style and next_style:
-                if curr_style == next_style:
-                    score += 5
-                elif curr_style in ['ballad', 'slow'] and next_style in ['eurobeat', 'fast', 'dance']:
-                    score -= 20
-                    metrics["style_penalty"] = True
-                elif curr_style in ['eurobeat', 'fast', 'dance'] and next_style in ['ballad', 'slow']:
-                    score -= 15
-                    metrics["style_penalty"] = True
-                    if phase_name == "Cool-down":
-                        score += 10
-                else:
-                    score -= 5
-                    metrics["style_penalty"] = True
-            
-            # ========== 【P0优化】降低time_signature权重，避免误检影响 ==========
-            # 原因：99.6%的歌曲都是4/4拍，功能失去区分度
-            # 修改：降低奖励（8→3）和惩罚（-25→-10），因为可能误检
-            if curr_rhythm and next_rhythm:
-                if curr_rhythm == next_rhythm:
-                    score += 3  # 降低奖励（从8→3）
-                elif (curr_rhythm == '3/4' and next_rhythm == '4/4') or (curr_rhythm == '4/4' and next_rhythm == '3/4'):
-                    score -= 10  # 降低惩罚（从-25→-10，因为可能误检）
-                    metrics["rhythm_penalty"] = True
-                else:
-                    score -= 5  # 降低惩罚（从-8→-5）
-                    metrics["rhythm_penalty"] = True
-
-            # ========== 第3优先级：质量过滤（BPM/Key Confidence） ==========
-            # 优化：使用置信度进行质量过滤，低置信度降低权重
-            # BPM Confidence质量过滤（权重1-2%）
-            curr_bpm_conf = current_track.get('bpm_confidence')
-            next_bpm_conf = track.get('bpm_confidence')
-            if curr_bpm_conf is not None and next_bpm_conf is not None:
-                # 如果两首歌曲的BPM置信度都较低，降低BPM评分权重
-                avg_bpm_conf = (curr_bpm_conf + next_bpm_conf) / 2.0
-                if avg_bpm_conf < 0.5:
-                    # 低置信度：降低BPM评分权重（最多-10分）
-                    score -= int((0.5 - avg_bpm_conf) * 20)  # 0.5置信度时-0分，0.3置信度时-4分，0.0置信度时-10分
-                    metrics["low_bpm_confidence"] = avg_bpm_conf
-                elif avg_bpm_conf > 0.8:
-                    # 高置信度：轻微奖励（最多+2分）
-                    score += int((avg_bpm_conf - 0.8) * 10)  # 0.8置信度时+0分，1.0置信度时+2分
-                    metrics["high_bpm_confidence"] = avg_bpm_conf
-            
-            # Key Confidence质量过滤（权重1-2%）
-            curr_key_conf = current_track.get('key_confidence')
-            next_key_conf = track.get('key_confidence')
-            if curr_key_conf is not None and next_key_conf is not None:
-                # 如果两首歌曲的Key置信度都较低，降低Key评分权重
-                avg_key_conf = (curr_key_conf + next_key_conf) / 2.0
-                if avg_key_conf < 0.5:
-                    # 低置信度：降低Key评分权重（最多-8分）
-                    score -= int((0.5 - avg_key_conf) * 16)  # 0.5置信度时-0分，0.3置信度时-3.2分，0.0置信度时-8分
-                    metrics["low_key_confidence"] = avg_key_conf
-                elif avg_key_conf > 0.8:
-                    # 高置信度：轻微奖励（最多+2分）
-                    score += int((avg_key_conf - 0.8) * 10)  # 0.8置信度时+0分，1.0置信度时+2分
-                    metrics["high_key_confidence"] = avg_key_conf
-            
-            # ========== 第4优先级：BPM Confidence硬约束（必须实施）⭐ ==========
-            # 优化：如果BPM置信度低（<0.6），标记为"不适合长混音"
-            # 强制建议Echo Out（而不是长混音）
-            if next_bpm_conf is not None and next_bpm_conf < 0.6:
-                # BPM置信度低，标记为不适合长混音
-                track['_low_bpm_confidence'] = True
-                track['_suggest_echo_out'] = True  # 建议Echo Out
-                # 不扣分，但标记为需要特殊处理
-                metrics["low_bpm_confidence_hard"] = next_bpm_conf
-            
-            # ========== 第6优先级：Groove Density节奏匹配（新增） ==========
-            # 优化：使用Groove Density进行节奏匹配，识别Tech House/Afrobeat等风格
-            # Groove Density存储在energy_profile中
-            # 注意：curr_profile和next_profile在后面定义，这里需要重新获取
-            curr_profile_for_groove = current_track.get('energy_profile', {})
-            next_profile_for_groove = track.get('energy_profile', {})
-            curr_groove = curr_profile_for_groove.get('groove_density') if curr_profile_for_groove else None
-            next_groove = next_profile_for_groove.get('groove_density') if next_profile_for_groove else None
-            if curr_groove is not None and next_groove is not None:
-                groove_diff = abs(curr_groove - next_groove)
-                metrics["groove_density_diff"] = groove_diff
-                
-                if groove_diff < 0.15:
-                    # Groove Density非常接近，奖励（权重1-2%）
-                    score += 5  # 节奏紧凑度匹配，加分
-                    metrics["groove_match"] = True
-                elif groove_diff < 0.25:
-                    # Groove Density接近，轻微奖励
-                    score += 2
-                    metrics["groove_match"] = True
-                elif groove_diff > 0.5:
-                    # Groove Density差异很大，轻微惩罚（但允许，因为可能是风格切换）
-                    score -= 3
-                    metrics["groove_mismatch"] = True
-            
-            # ========== 第5优先级：Spectral Centroid能量类型判断（新增，如果存在） ==========
-            # 优化：使用Spectral Centroid判断能量类型（Deep/Bright），用于能量匹配
-            # Spectral Centroid可能存储在energy_profile中，如果不存在则跳过
-            # 注意：curr_profile和next_profile在后面定义，这里需要重新获取
-            curr_profile_for_spectral = current_track.get('energy_profile', {})
-            next_profile_for_spectral = track.get('energy_profile', {})
-            curr_spectral = curr_profile_for_spectral.get('spectral_centroid_mean') if curr_profile_for_spectral else None
-            next_spectral = next_profile_for_spectral.get('spectral_centroid_mean') if next_profile_for_spectral else None
-            if curr_spectral is not None and next_spectral is not None:
-                spectral_diff = abs(curr_spectral - next_spectral)
-                metrics["spectral_centroid_diff"] = spectral_diff
-                
-                # Spectral Centroid差异越小，音色越相似（Deep vs Bright）
-                # 归一化差异（假设Spectral Centroid范围在1000-5000 Hz）
-                normalized_diff = spectral_diff / 4000.0  # 归一化到0-1
-                
-                if normalized_diff < 0.1:
-                    # Spectral Centroid非常接近，奖励（权重1%）
-                    score += 3  # 能量类型匹配（Deep/Bright），加分
-                    metrics["spectral_match"] = True
-                elif normalized_diff < 0.2:
-                    # Spectral Centroid接近，轻微奖励
-                    score += 1
-                    metrics["spectral_match"] = True
-                # 差异较大时不惩罚，因为可能是风格切换（Deep → Bright）
-
-            # ========== 第8优先级：Beat对齐和Drop对齐（极低权重，仅参考） ==========
-            # 重要调整：AI对流行歌曲的Drop和Beat Grid检测经常不准
-            # 将权重从30-100分大幅降低到5-10分，并且只在BPM置信度极高时才启用
-            # 不要让对齐问题影响BPM和调性的主排序逻辑
-            # P0-2优化：返回包含beatgrid_fix_hints的结果
-            beat_result = calculate_beat_alignment(current_track, track)
-            if len(beat_result) >= 4:
-                beat_offset_diff, beat_alignment_score, beatgrid_fix_hints, needs_manual_align = beat_result
-            else:
-                # 兼容旧版本（如果返回值只有2个）
-                beat_offset_diff, beat_alignment_score = beat_result[:2]
-                beatgrid_fix_hints = {}
-                needs_manual_align = False
-            drop_offset_diff, drop_alignment_score = calculate_drop_alignment(current_track, track)
-            
-            metrics["beat_offset_diff"] = beat_offset_diff
-            metrics["drop_offset_diff"] = drop_offset_diff
-            metrics["beat_alignment_score"] = beat_alignment_score
-            metrics["drop_alignment_score"] = drop_alignment_score
-            
-            # 【优化2】优化强拍对齐检测：提高BPM置信度阈值，减少误报
-            # 条件1：BPM差≤3（收紧从≤5到≤3，只对BPM非常接近的歌曲进行对齐评分）
-            # 条件2：BPM置信度≥0.85（提高从≥0.7到≥0.85，只对高置信度BPM进行对齐评分）
-            # 条件3：beat_offset必须存在（避免使用默认值0导致误报）
-            avg_bpm_conf_for_alignment = (curr_bpm_conf + next_bpm_conf) / 2.0 if (curr_bpm_conf is not None and next_bpm_conf is not None) else 0.0
-            is_bpm_conf_acceptable = avg_bpm_conf_for_alignment >= 0.85  # 提高阈值到0.85
-            
-            # 【修复】检查downbeat_offset是否真实存在（不是默认值0）
-            curr_downbeat_offset = current_track.get('downbeat_offset', None)
-            next_downbeat_offset = track.get('downbeat_offset', None)
-            has_real_beat_offset = (curr_downbeat_offset is not None and curr_downbeat_offset != 0) or \
-                                   (next_downbeat_offset is not None and next_downbeat_offset != 0)
-            
-            if bpm_diff <= 3 and is_bpm_conf_acceptable and has_real_beat_offset:
-                # ========== 【修复3】降低 Drop/Beat 对齐权重（100分→10-20分） ==========
-                # 因为AI检测存在误差，不能让它拥有一票否决权
-                # 将权重从 100分 降低到 10-20分（乘以 0.15 系数）
-                # Beat对齐评分（权重10-20分，仅作为参考）
-                if beat_offset_diff <= 0.5:
-                    score += 20  # 完美对齐，最高奖励20分（原100分→20分）
-                elif beat_offset_diff <= 1.0:
-                    score += 15  # 优秀对齐，15分（原90分→15分）
-                elif beat_offset_diff <= 2.0:
-                    score += 10  # 可接受对齐，10分（原70分→10分）
-                elif beat_offset_diff <= 4.0:
-                    score += 5   # 轻微奖励，5分（原40分→5分）
-                elif beat_offset_diff <= 8.0:
-                    score -= 5   # 严重错位，轻微惩罚-5分（不影响主排序）
-                else:
-                    score -= 10  # 极严重错位，轻微惩罚-10分（不影响主排序）
-            elif bpm_diff > 3:
-                # BPM差>3时，强拍对齐不可靠，不评分
-                pass
-            elif not is_bpm_conf_acceptable:
-                # BPM置信度不够高：不评分（提供参考信息，让DJ手动调整）
-                pass
-            elif not has_real_beat_offset:
-                # beat_offset不存在或为默认值：不评分（避免误报）
-                pass
-            
-            # Drop对齐评分：只在BPM差≤2、BPM置信度极高且Drop时间已知时给予奖励
-            # 如果Drop时间未知（DROP_UNKNOWN），不评分
-            curr_drop = current_track.get('first_drop_time')
-            next_drop = track.get('first_drop_time')
-            has_drop_info = curr_drop is not None and next_drop is not None
-            
-            # 使用is_bpm_conf_acceptable代替未定义的is_bpm_conf_high
-            is_bpm_conf_high = avg_bpm_conf_for_alignment >= 0.90  # 更高阈值用于Drop对齐
-            if bpm_diff <= 2 and is_bpm_conf_high and has_drop_info:
-                # ========== 【修复3】Drop对齐评分：降低权重（10-20分） ==========
-                # 只有在BPM差≤2、BPM置信度极高且Drop时间已知时才给予奖励
-                if drop_offset_diff <= 4.0:
-                    score += 20  # 完美Drop对齐，最高奖励20分（原100分→20分）
-                elif drop_offset_diff <= 8.0:
-                    score += 15  # 优秀Drop对齐，15分（原80分→15分）
-                elif drop_offset_diff <= 16.0:
-                    score += 10  # 可接受Drop对齐，10分（原60分→10分）
-                # 偏移>16.0拍：不评分（提供参考信息，不惩罚）
-            # BPM差>2、BPM置信度不够高或Drop时间未知：不评分（提供参考信息，让DJ手动调整）
-
-            # 【V6.3新增】混音兼容性综合评分
             try:
-                from mix_compatibility_scorer import calculate_mix_compatibility_score
-                mix_score, mix_metrics = calculate_mix_compatibility_score(
-                    current_track, 
-                    track
-                )
-                # 权重8%（混音兼容性作为综合参考）
-                score += mix_score * 0.08
-                metrics["mix_compatibility_score"] = mix_score
-                metrics["mix_compatibility_metrics"] = mix_metrics
+                if track.get('_used'):
+                    continue
                 
-                # 记录关键警告
-                if mix_metrics.get('drop_clash'):
-                    metrics["mix_warning_drop_clash"] = True
-                if mix_metrics.get('beat_offset_large'):
-                    metrics["mix_warning_beat_offset"] = True
-            except (ImportError, Exception):
-                # 优雅降级：如果模块不存在或出错，不影响排序
-                pass
-            
-            vocal_penalty, has_vocal_conflict = check_vocal_conflict(current_track, track)
-            score += vocal_penalty
-            metrics["vocal_conflict_penalty"] = vocal_penalty
-            metrics["has_vocal_conflict"] = has_vocal_conflict
-            
-            # ========== 【V4.0 Ultra+ 专家级增强】审美与 Mashup 联动评分 ==========
-            # 1. Aesthetic Curator: 审美匹配 (曲风/时代/情感) - 权重 15%
-            aesthetic_score, aesthetic_details = AESTHETIC_CURATOR.calculate_aesthetic_match(current_track, track)
-            score += aesthetic_score * 0.15
-            metrics["aesthetic_score"] = aesthetic_score
-            metrics["aesthetic_details"] = aesthetic_details
-            
-            # 2. Mashup Intelligence: 跨界桥接与 Stems 兼容 - 权重 15%
-            mashup_score, mashup_details = MASHUP_INTELLIGENCE.calculate_mashup_score(current_track, track)
-            score += mashup_score * 0.15
-            metrics["mashup_score"] = mashup_score
-            metrics["mashup_details"] = mashup_details
-            
-            # ========== 【V4.1 Neural Sync】深度神经同步评分 ==========
-            # A. 乐句长度匹配 (Phrase Parity) - 理想: 32拍+32拍
-            phrase_parity_bonus = 0
-            curr_outro_bars = current_track.get('outro_bars', 8)
-            next_intro_bars = track.get('intro_bars', 8)
-            if curr_outro_bars == next_intro_bars:
-                phrase_parity_bonus = 25  # 物理量化完美契合
-                score += phrase_parity_bonus
-                metrics["phrase_parity_bonus"] = phrase_parity_bonus
-            
-            # B. 人声/伴奏互补 (Proactive Stem Synergy)
-            vocal_synergy_bonus = 0
-            # 【V5.2 HOTFIX】确保 vocal_ratio 不为 None
-            curr_v_ratio = current_track.get('outro_vocal_ratio') or 0.5
-            next_v_ratio = track.get('intro_vocal_ratio') or 0.5
-            # 如果一个是纯人声/重人声，另一个是纯伴奏/重伴奏
-            if (curr_v_ratio > 0.7 and next_v_ratio < 0.3) or (curr_v_ratio < 0.3 and next_v_ratio > 0.7):
-                vocal_synergy_bonus = 20
-                score += vocal_synergy_bonus
-                metrics["vocal_synergy_bonus"] = vocal_synergy_bonus
-                metrics["mashup_sweet_spot"] = True
-            
-            # C. 爆发点对齐 (Drop Alignment)
-            drop_align_bonus = 0
-            next_drop = track.get('first_drop_time')
-            if next_drop:
-                # 检查 B 轨 Drop 是否能在大约 32-64 拍内通过 A 轨 Outro 引出
-                # 这是一个简化的对齐评分
-                drop_align_bonus = 5
-                score += drop_align_bonus
-                metrics["drop_align_bonus"] = drop_align_bonus
-            
-            # ========== 【P1优化】使用mixable_windows优化混音点 ==========
-            # 尝试使用mixable_windows优化混音点选择
-            optimized_mix_out, optimized_mix_in = optimize_mix_points_with_windows(current_track, track)
-            
-            # 如果优化成功，更新指标（用于后续持久化到音轨对象）
-            if optimized_mix_out is not None and optimized_mix_in is not None:
-                # 记录优化值，确保 TXT 报告与 XML 强同步
-                metrics["mix_points_optimized"] = True
-                metrics["optimized_mix_out"] = optimized_mix_out
-                metrics["optimized_mix_in"] = optimized_mix_in
-                # 局部变量用于后续计算
-                curr_mix_out = optimized_mix_out
-                next_mix_in = optimized_mix_in
-            else:
-                # 使用原始分析点
-                curr_mix_out = current_track.get('mix_out_point')
-                next_mix_in = track.get('mix_in_point')
-            
-            # 能量释放点优化 + 结构标签硬约束
-            curr_duration = current_track.get('duration', 0)
-            curr_structure = current_track.get('structure', {})
-            next_structure = track.get('structure', {})
-            
-            # 混音点计算（仅用于显示，不影响排序）
-            if curr_mix_out and next_mix_in and curr_duration > 0:
-                # 修正混音点间隔计算：
-                # curr_mix_out是当前歌曲的混出点（从开始计算的秒数）
-                # next_mix_in是下一首歌曲的混入点（从开始计算的秒数）
-                # 混音点间隔 = 下一首混入点 - (当前歌曲时长 - 当前混出点)
-                mix_gap = next_mix_in - (curr_duration - curr_mix_out)
-                metrics["mix_gap"] = mix_gap
+                next_bpm = float(track.get('bpm') or 0)
+                bpm_diff = abs(current_bpm - next_bpm)
                 
-                # 检查结构标签（仅用于标记警告，不影响排序）
-                curr_mix_out_in_verse = False
-                next_mix_in_in_verse = False
-                
-                if curr_structure:
-                    verses = curr_structure.get('verse', [])
-                    # 检查是否在Verse中间（仅标记，不扣分）
-                    for verse in verses:
-                        if verse[0] < curr_mix_out < verse[1]:
-                            curr_mix_out_in_verse = True
-                            break
-                
-                if next_structure:
-                    verses = next_structure.get('verse', [])
-                    # 检查是否在Verse中间（仅标记，不扣分）
-                    for verse in verses:
-                        if verse[0] < next_mix_in < verse[1]:
-                            next_mix_in_in_verse = True
-                            break
-                
-                # 标记警告（不影响排序）
-                if curr_mix_out_in_verse or next_mix_in_in_verse:
-                    metrics["structure_warning"] = True
-            # ========== V3.0 Ultra+ 专家级补完：人声避让与物理审计 ==========
-            # 1. 人声安全锁 (Vocal Guard): 强制扣减 40% 分数 (V3.0 红线)
-            if metrics.get("has_vocal_conflict"):
-                score *= 0.6 
-                metrics["v3_vocal_shield_active"] = True
-            
-            # 2. 低音相位审计 (Bass Swap Detection)
-            curr_low = current_track.get('energy_profile', {}).get('low_energy', 0)
-            next_low = track.get('energy_profile', {}).get('low_energy', 0)
-            if curr_low > 0.6 and next_low > 0.6:
-                metrics["bass_swap_required"] = True
-                metrics["bass_swap_reason"] = f"双轨低频对撞 (Low Energy: {curr_low:.1f}/{next_low:.1f})"
-            
-            # 3. 律动感知 (Swing Matching)
-            # 确保 Swing 风格过渡平滑，避免 Straight 与 Heavy Swing 硬碰硬
-            curr_swing = current_track.get('swing_ratio') or current_track.get('analysis', {}).get('swing_ratio', 0.0)
-            next_swing = track.get('swing_ratio') or track.get('analysis', {}).get('swing_ratio', 0.0)
-            if abs(float(curr_swing) - float(next_swing)) > 0.4:
-                score -= 25
-                metrics["swing_mismatch_penalty"] = True
-            
-            # 4. 音色解析 (Synthesis Consistency)
-            # 保持音色合成类型的一致性 (Analog vs Digital)
-            curr_synth = current_track.get('synthesis_type') or current_track.get('analysis', {}).get('synthesis_type')
-            next_synth = track.get('synthesis_type') or track.get('analysis', {}).get('synthesis_type')
-            if curr_synth and next_synth and curr_synth != next_synth:
-                score -= 15
-                metrics["synthesis_jump_penalty"] = True
-            
-            candidate_results.append({
-                "track": track,
-                "score": score,
-                "metrics": metrics,
-            })
-            
-            # ========== FULL DEBUG: 收集每个候选的完整评分信息 ==========
-            if debug_reporter:
-                candidate_debug = {
-                    'track': {
-                        'title': track.get('title', 'Unknown'),
-                        'bpm': track.get('bpm', 0),
-                        'key': track.get('key', 'Unknown'),
-                        'energy': track.get('energy', 50),
-                        'file_path': track.get('file_path', 'Unknown'),
-                        'duration': track.get('duration', 0),
-                        'first_drop_time': track.get('first_drop_time'),
-                        'mix_in_point': track.get('mix_in_point'),
-                        'beat_offset': track.get('beat_offset'),
-                        'structure': track.get('structure', {}),
-                        'energy_profile': track.get('energy_profile', {})
-                    },
-                    'total_score': score,
-                    'scores': {
-                        'bpm_score': metrics.get('bpm_diff', 0),
-                        'bpm_change': (track.get('bpm', 0) - current_bpm) if current_bpm > 0 else 0,
-                        'key_score': metrics.get('key_score', 0),
-                        'energy_score': metrics.get('energy_diff', 0),
-                        'energy_phase': phase_name,
-                        'drop_alignment': metrics.get('drop_alignment', None),
-                        'beat_alignment': metrics.get('beat_offset_diff', None),
-                        'mix_gap': metrics.get('mix_gap', None),
-                        'percussive_diff': metrics.get('percussive_diff', None),
-                        'dyn_var_diff': metrics.get('dyn_var_diff', None),
-                        'style_penalty': metrics.get('style_penalty', False),
-                        'rhythm_penalty': metrics.get('rhythm_penalty', False),
-                        'phase_penalty': metrics.get('phase_penalty', False),
-                        'missing_profile': metrics.get('missing_profile', False)
-                    },
-                    'details': {
-                        'current_track_bpm': current_bpm,
-                        'current_track_key': current_track.get('key', 'Unknown'),
-                        'current_track_energy': current_track.get('energy', 50),
-                        'current_track_phase': current_track.get('assigned_phase', 'Unknown'),
-                        'target_phase': phase_name,
-                        'target_energy_range': (min_energy, max_energy),
-                        'all_metrics': metrics.copy()
+                # 初始化评分指标
+                metrics = {
+                    "bpm_diff": bpm_diff,
+                    "key_score": None,
+                    "percussive_diff": None,
+                    "dyn_var_diff": None,
+                    "style_penalty": False,
+                    "rhythm_penalty": False,
+                    "phase_penalty": False,
+                    "missing_profile": False,
+                    "fallback": False,
+                        "bpm_confidence": None,
+                        "key_confidence": None,
+                        "groove_density_diff": None,
+                        "spectral_centroid_diff": None,
+                        "drum_pattern_mismatch": False,
+                        "boutique_penalty": 0
                     }
-                }
-                debug_candidate_scores.append(candidate_debug)
-                round_debug['candidates'].append({
-                    'title': track.get('title', 'Unknown')[:50],
-                    'score': score,
-                    'bpm': track.get('bpm', 0),
-                    'key': track.get('key', 'Unknown'),
-                    'energy': track.get('energy', 50)
+    
+                # ========== 【Boutique】精品模式多级评分机制 (代替硬性拦截) ==========
+                boutique_penalty = 0
+                if is_boutique:
+                    # 调性兼容度预计算
+                    k_score = get_key_compatibility_flexible(current_track.get('key', ''), track.get('key', ''))
+                    energy_diff = abs(float(track.get('energy') or 50) - current_energy)
+                    
+                    # Tier 1 (Gold): 极致平滑 (BPM diff <= 8, Key Score >= 90, Energy Jump <= 25)
+                    # Tier 2 (Silver): 专业标准 (BPM diff <= 12, Key Score >= 75) -> 扣 150 分
+                    # Tier 3 (Bronze): 超过专业标准 -> 扣 500 分
+                    
+                    if bpm_diff <= 8.0 and k_score >= 90 and energy_diff <= 25:
+                        boutique_penalty = 0 # 完美匹配，不扣分
+                    elif bpm_diff <= 12.0 and k_score >= 75:
+                        boutique_penalty = 150 # 略有瑕疵，但在专业可接受范围内
+                    else:
+                        # 此时已经属于“较难接”的范畴，但在精品模式下作为最后的保底，不推荐使用
+                        boutique_penalty = 500 # 严重扣分，只有在别无选择时才会排入
+                
+                score = -boutique_penalty
+                if is_boutique and boutique_penalty > 0:
+                    metrics["boutique_penalty"] = boutique_penalty
+                
+                # 第1优先级：BPM（最高100分）
+                # 【修复】DJ排法：BPM应该逐渐上升或保持，但允许有条件的下降（breakdown过渡）
+                bpm_score = get_bpm_compatibility_flexible(current_bpm, next_bpm)
+                bpm_change = next_bpm - current_bpm  # 正数=上升，负数=下降
+                
+                # 获取能量变化（用于判断是否是breakdown过渡）
+                next_energy = float(track.get('energy') or 50)
+                energy_diff = next_energy - current_energy  # 正数=能量上升，负数=能量下降
+                
+                # 判断是否是breakdown过渡（BPM下降且能量也下降）
+                is_breakdown_transition = (bpm_change < 0 and energy_diff < -5)
+                
+                if bpm_diff <= 2:
+                    if bpm_change >= 0:
+                        score += 100  # BPM上升或持平：最高100分
+                    else:
+                        if is_breakdown_transition:
+                            score += 90  # Breakdown过渡：允许，轻微奖励
+                        else:
+                            score += 80  # BPM轻微下降（≤2）：轻微惩罚
+                elif bpm_diff <= 4:
+                    if bpm_change >= 0:
+                        score += 80  # BPM上升：80分
+                    else:
+                        if is_breakdown_transition:
+                            score += 60  # Breakdown过渡：允许，中等奖励
+                        else:
+                            score += 50  # BPM下降：严重惩罚
+                elif bpm_diff <= 6:
+                    if bpm_change >= 0:
+                        score += 60  # BPM上升：60分
+                    else:
+                        if is_breakdown_transition:
+                            score += 30  # Breakdown过渡：允许，轻微奖励
+                        else:
+                            score += 20  # BPM下降：严重惩罚
+                elif bpm_diff <= 8:
+                    if bpm_change >= 0:
+                        score += 40  # BPM上升：40分
+                    else:
+                        if is_breakdown_transition:
+                            score += 10  # Breakdown过渡：允许，不扣分
+                        else:
+                            score -= 20  # BPM下降：严重惩罚
+                elif bpm_diff <= 10:
+                    if bpm_change >= 0:
+                        score += 20  # BPM上升：20分
+                    else:
+                        if is_breakdown_transition:
+                            score -= 20  # Breakdown过渡：允许，轻微惩罚
+                        else:
+                            score -= 60  # BPM下降：极严重惩罚
+                elif bpm_diff <= 12:
+                    if bpm_change >= 0:
+                        score += 5  # BPM上升：轻微加分
+                    else:
+                        score -= 100  # BPM下降：极严重惩罚
+                elif bpm_diff <= 16:
+                    if bpm_change >= 0:
+                        score -= 20  # BPM上升但跨度大：轻微惩罚
+                    else:
+                        score -= 150  # BPM下降且跨度大：极严重惩罚
+                elif bpm_diff <= 20:
+                    if bpm_change >= 0:
+                        score -= 60  # BPM上升但跨度大：严重惩罚
+                    else:
+                        score -= 200  # BPM下降且跨度大：极严重惩罚
+                elif bpm_diff <= 30:
+                    if bpm_change >= 0:
+                        score -= 100  # BPM上升但跨度超大：严重惩罚
+                    else:
+                        score -= 250  # BPM下降且跨度超大：极严重惩罚
+                else:
+                    if bpm_change >= 0:
+                        score -= 160  # BPM上升但跨度极大：极严重惩罚
+                    else:
+                        score -= 300  # BPM下降且跨度极大：极严重惩罚
+                
+                key_score = get_key_compatibility_flexible(
+                    current_track.get('key', ''),
+                    track.get('key', '')
+                )
+                metrics["key_score"] = key_score
+                
+                # 根据歌曲类型动态调整调性权重
+                # 对于快速切换/Drop混音类型的歌曲，调性权重降低
+                current_style = current_track.get('style_hint', '').lower() if current_track.get('style_hint') else ''
+                next_style = track.get('style_hint', '').lower() if track.get('style_hint') else ''
+                current_genre = current_track.get('genre', '').lower() if current_track.get('genre') else ''
+                next_genre = track.get('genre', '').lower() if track.get('genre') else ''
+                
+                # 判断是否是快速切换/Drop混音类型（调性不那么重要）
+                is_fast_switch = False
+                if any(keyword in current_style or keyword in next_style for keyword in ['tech', 'hard', 'fast', 'dance']):
+                    is_fast_switch = True
+                if any(keyword in current_genre or keyword in next_genre for keyword in ['tech house', 'hard trance', 'hardstyle']):
+                    is_fast_switch = True
+                # 高能量歌曲通常可以快速切换
+                if (current_energy > 70) or (float(track.get('energy') or 50) > 70):
+                    is_fast_switch = True
+                
+                # ========== 第2优先级：调性兼容性（修复版，降低权重确保BPM优先） ==========
+                # 专业DJ规则：调性跳跃可以用效果器过渡，BPM匹配应该优先
+                # 计算调性距离（用于判断是否需要严重惩罚）
+                current_key = current_track.get('key', '')
+                next_key = track.get('key', '')
+                key_distance = None
+                
+                # 计算Camelot距离
+                if current_key and next_key:
+                    try:
+                        # 提取Camelot编号
+                        curr_num = int(current_key[:-1]) if current_key[:-1].isdigit() else None
+                        next_num = int(next_key[:-1]) if next_key[:-1].isdigit() else None
+                        if curr_num and next_num:
+                            # 计算最短距离（考虑12的循环）
+                            dist1 = abs(next_num - curr_num)
+                            dist2 = 12 - dist1
+                            key_distance = min(dist1, dist2)
+                    except:
+                        pass
+                
+                # 调性权重：降低到0.2-0.3（从0.3-0.4降低），确保BPM优先
+                if is_fast_switch:
+                    key_weight = 0.2  # 快速切换类型，权重更低
+                else:
+                    if key_score >= 100:
+                        key_weight = 0.3  # 完美匹配，最高权重（降低）
+                    elif key_score >= 95:
+                        key_weight = 0.25
+                    elif key_score >= 85:
+                        key_weight = 0.22
+                    else:
+                        key_weight = 0.2
+                
+                # 调性评分：基础评分
+                score += key_score * key_weight
+                
+                # 调性距离惩罚：对于距离≥5的跳跃，进一步降低惩罚（允许但标记为"需技巧过渡"）
+                if key_distance is not None:
+                    if key_distance >= 5:
+                        score -= 50  # 距离≥5，中等惩罚（进一步降低从-80到-50，允许但需要技巧）
+                        metrics["key_distance_penalty"] = key_distance
+                        metrics["needs_technique"] = True  # 标记需要技巧过渡
+                    elif key_distance >= 4:
+                        score -= 30  # 距离≥4，轻微惩罚（降低从-50到-30）
+                        metrics["key_distance_penalty"] = key_distance
+                    elif key_distance >= 3:
+                        score -= 15  # 距离≥3，轻微惩罚（降低从-25到-15）
+                        metrics["key_distance_penalty"] = key_distance
+                
+                # 调性兼容性额外惩罚（进一步降低）
+                if key_score < 40:
+                    score -= 10  # 调性完全不兼容，轻微惩罚（降低从-20到-10）
+                elif key_score < 60:
+                    score -= 5  # 调性不兼容，轻微惩罚（降低从-10到-5）
+                
+                # 优化：避免连续相同调性（但不要过度惩罚，调性兼容性优先）
+                current_key = current_track.get('key', '')
+                next_key = track.get('key', '')
+                if current_key and next_key and current_key == next_key and current_key != "未知":
+                    # 如果调性完全相同，稍微降低分数（但仍然是高分，因为兼容性好）
+                    # 检查前面是否也是相同调性
+                    if len(sorted_tracks) > 0:
+                        prev_key = sorted_tracks[-1].get('key', '') if len(sorted_tracks) > 0 else ''
+                        if prev_key == current_key:
+                            # 连续三首相同调性，轻微降低分数（从8降到3）
+                            score -= 3
+                        else:
+                            # 只是两首相同，不降低分数（调性兼容性优先）
+                            pass
+                
+                # 第2优先级：能量（根据阶段动态调整权重）
+                energy = float(track.get('energy') or 50)
+                energy_diff = abs(energy - current_energy)
+                
+                # 根据阶段动态调整能量权重
+                # Build-up和Peak阶段更重视能量匹配（提升到40分）
+                if phase_name in ["Build-up", "Peak"]:
+                    max_energy_score = 40  # 提升到40分
+                    energy_weights = {
+                        5: 40,    # 能量差≤5：40分
+                        10: 27,   # 能量差≤10：27分（40*0.67）
+                        15: 13,   # 能量差≤15：13分（40*0.33）
+                        20: 7,    # 能量差≤20：7分（40*0.17）
+                    }
+                else:
+                    max_energy_score = 30  # 保持30分
+                    energy_weights = {
+                        5: 30,    # 能量差≤5：30分
+                        10: 20,   # 能量差≤10：20分
+                        15: 10,   # 能量差≤15：10分
+                        20: 5,    # 能量差≤20：5分
+                    }
+                
+                # 能量匹配度得分（能量差越小，得分越高）
+                if energy_diff <= 5:
+                    score += energy_weights[5]
+                elif energy_diff <= 10:
+                    score += energy_weights[10]
+                elif energy_diff <= 15:
+                    score += energy_weights[15]
+                elif energy_diff <= 20:
+                    score += energy_weights[20]
+                else:
+                    score -= 5  # 能量差太大，轻微惩罚
+                
+                # 单峰结构约束：检查阶段约束（在能量阶段匹配之前）
+                # 获取候选歌曲的预期阶段
+                candidate_phase = get_energy_phase_target(
+                    len(sorted_tracks) + 1, len(tracks), next_bpm, energy, sorted_tracks, track
+                )[2]
+                candidate_phase_num = get_phase_number(candidate_phase)
+                
+                # 检查阶段约束
+                is_valid_phase, phase_penalty = check_phase_constraint(
+                    current_phase_num, candidate_phase_num, max_phase_reached, in_cool_down
+                )
+                
+                # 如果违反阶段约束，大幅扣分（强化能量曲线约束）
+                if not is_valid_phase:
+                    score += phase_penalty  # phase_penalty已经是负数
+                    metrics["phase_constraint_violation"] = True
+                elif phase_penalty < 0:
+                    score += phase_penalty  # 轻微违反，扣分但允许
+                    metrics["phase_constraint_warning"] = True
+                
+                # 修复：允许小幅能量回落，只惩罚大幅回落
+                # 如果能量回落后再提升（除了Cool-down），根据回落幅度扣分
+                if sorted_tracks and len(sorted_tracks) > 0:
+                    recent_phases = [t.get('assigned_phase') for t in sorted_tracks[-5:] if t.get('assigned_phase')]
+                    recent_energies = [t.get('energy', 50) for t in sorted_tracks[-5:] if isinstance(t.get('energy'), (int, float))]
+                    
+                    if recent_phases and recent_energies:
+                        last_phase = recent_phases[-1]
+                        last_phase_num = get_phase_number(last_phase)
+                        candidate_phase_num = get_phase_number(candidate_phase)
+                        
+                        # 计算能量回落幅度
+                        max_energy_reached = max(recent_energies) if recent_energies else 50
+                        energy_regression = max_energy_reached - energy if energy < max_energy_reached else 0
+                        
+                        # 如果能量回落后再提升（已到过Peak或更高，现在又回到更早阶段）
+                        if last_phase_num >= 2 and candidate_phase_num < last_phase_num and candidate_phase != "Cool-down":
+                            if energy_regression <= 5:
+                                # 小幅能量回落（±5能量内），允许，轻微惩罚
+                                score -= 20
+                                metrics["energy_regression_penalty"] = "minor"
+                            elif energy_regression <= 10:
+                                # 中等能量回落（5-10能量），中等惩罚
+                                score -= 50
+                                metrics["energy_regression_penalty"] = "moderate"
+                            else:
+                                # 大幅能量回落（>10能量），严重惩罚
+                                score -= 100
+                                metrics["energy_regression_penalty"] = "severe"
+                
+                # 能量阶段匹配（额外加分）
+                if min_energy <= energy <= max_energy:
+                    score += 5  # 能量阶段匹配，额外加分
+                elif energy < min_energy:
+                    if phase_name in ["Warm-up", "Cool-down"]:
+                        score += 3
+                    else:
+                        score += 1
+                else:
+                    if phase_name in ["Peak", "Intense"]:
+                        score += 3
+                    elif phase_name == "Cool-down":
+                        score -= 5  # Cool-down阶段能量过高，惩罚
+                    else:
+                        score += 1
+                
+                # ========== 【P1优化】张力曲线匹配（配合能量阶段）==========
+                # 检查两首歌的张力走向是否符合当前能量阶段
+                curr_tension = current_track.get('tension_curve')
+                next_tension = track.get('tension_curve')
+                
+                if curr_tension and next_tension and len(curr_tension) > 2 and len(next_tension) > 2:
+                    try:
+                        # 计算张力趋势（上升/下降/平稳）
+                        # 取最后30%的张力值来判断趋势
+                        curr_tail = curr_tension[-int(len(curr_tension)*0.3):]
+                        next_head = next_tension[:int(len(next_tension)*0.3)]
+                        
+                        # 计算趋势（线性回归斜率）
+                        curr_trend = (curr_tail[-1] - curr_tail[0]) / len(curr_tail) if len(curr_tail) > 1 else 0
+                        next_trend = (next_head[-1] - next_head[0]) / len(next_head) if len(next_head) > 1 else 0
+                        
+                        # 判断趋势方向
+                        curr_direction = 'up' if curr_trend > 0.01 else ('down' if curr_trend < -0.01 else 'flat')
+                        next_direction = 'up' if next_trend > 0.01 else ('down' if next_trend < -0.01 else 'flat')
+                        
+                        # 根据能量阶段评分（配合Set整体曲线）
+                        if candidate_phase in ["Warm-up", "Build-up"]:
+                            # 上升阶段：鼓励上升趋势
+                            if curr_direction == 'up' and next_direction == 'up':
+                                score += 10  # 情绪递进
+                                metrics["tension_match"] = "rising_phase_rising_tension"
+                            elif curr_direction == 'up' and next_direction == 'down':
+                                score -= 15  # 情绪冲突
+                                metrics["tension_conflict"] = "rising_phase_falling_tension"
+                            elif curr_direction == 'flat' or next_direction == 'flat':
+                                score += 3  # 平稳过渡
+                                metrics["tension_match"] = "neutral"
+                        
+                        elif candidate_phase in ["Peak", "Intense"]:
+                            # 高潮阶段：鼓励平稳或持续高能
+                            if curr_direction == 'flat' and next_direction == 'flat':
+                                score += 10  # 维持高能量
+                                metrics["tension_match"] = "peak_phase_stable_tension"
+                            elif curr_direction == 'up' and next_direction == 'up':
+                                score += 5  # 继续推高
+                                metrics["tension_match"] = "peak_phase_rising_tension"
+                            elif curr_direction == 'down' and next_direction == 'down':
+                                score -= 5  # 过早衰退
+                                metrics["tension_warning"] = "peak_phase_falling_tension"
+                            elif curr_direction == 'flat' or next_direction == 'flat':
+                                score += 3
+                                metrics["tension_match"] = "neutral"
+                        
+                        elif candidate_phase == "Cool-down":
+                            # 收尾阶段：鼓励下降趋势
+                            if curr_direction == 'down' and next_direction == 'down':
+                                score += 10  # 平稳收尾
+                                metrics["tension_match"] = "cooldown_phase_falling_tension"
+                            elif curr_direction == 'up' and next_direction == 'down':
+                                score += 5  # 自然过渡到收尾
+                                metrics["tension_match"] = "cooldown_phase_natural_transition"
+                            elif curr_direction == 'down' and next_direction == 'up':
+                                score -= 10  # 违反收尾逻辑
+                                metrics["tension_conflict"] = "cooldown_phase_rising_tension"
+                            elif curr_direction == 'flat' or next_direction == 'flat':
+                                score += 3
+                                metrics["tension_match"] = "neutral"
+                        
+                        else:
+                            # 其他阶段：方向一致即可
+                            if curr_direction == next_direction:
+                                score += 5
+                                metrics["tension_match"] = "same_direction"
+                            elif curr_direction == 'flat' or next_direction == 'flat':
+                                score += 3
+                                metrics["tension_match"] = "neutral"
+                    
+                    except Exception:
+                        pass
+                
+                # 律动相似度（基于onset密度）
+                rhythm_similarity = compare_rhythm_similarity(current_track, track)
+                if rhythm_similarity > 0.8:
+                    score += 15  # 节奏密度接近，加分
+                    metrics["rhythm_similarity"] = rhythm_similarity
+                elif rhythm_similarity < 0.4:
+                    score -= 10  # 节奏密度差异太大，扣分
+                    metrics["rhythm_similarity"] = rhythm_similarity
+                    metrics["rhythm_penalty"] = True
+                else:
+                    metrics["rhythm_similarity"] = rhythm_similarity
+                
+                phase_hint = track.get('phase_hint')
+                if isinstance(phase_hint, str):
+                    phase_hint = phase_hint.strip().lower()
+                    current_phase = phase_name.lower()
+                    if phase_hint == current_phase:
+                        score += 15
+                    elif (phase_hint == 'warm-up' and current_phase in {'build-up', 'peak', 'intense'}) or (
+                        phase_hint == 'cool-down' and current_phase in {'peak', 'intense'}):
+                        score -= 30
+                        metrics["phase_penalty"] = True
+                    elif phase_hint != current_phase:
+                        score -= 12
+                        metrics["phase_penalty"] = True
+                
+                energy_diff = energy - current_track.get('energy', 50)
+                if abs(energy_diff) <= 5:
+                    score += 2
+                elif -10 <= energy_diff <= 15:
+                    score += 1
+                
+                curr_profile = current_track.get('energy_profile', {})
+                next_profile = track.get('energy_profile', {})
+                if curr_profile and next_profile:
+                    curr_percussive = curr_profile.get('percussive_ratio', 0)
+                    next_percussive = next_profile.get('percussive_ratio', 0)
+                    percussive_diff = abs(curr_percussive - next_percussive)
+                    metrics["percussive_diff"] = percussive_diff
+                    
+                    if percussive_diff < 0.2:
+                        score += 5
+                    elif percussive_diff > 0.5:
+                        score -= 15
+                    else:
+                        score += (1 - percussive_diff) * 5
+                    
+                    curr_dyn_var = curr_profile.get('dynamic_variance', 0)
+                    next_dyn_var = next_profile.get('dynamic_variance', 0)
+                    dyn_var_diff = abs(curr_dyn_var - next_dyn_var)
+                    metrics["dyn_var_diff"] = dyn_var_diff
+                    if dyn_var_diff < 0.1:
+                        score += 3
+                    elif dyn_var_diff > 0.3:
+                        score -= 8
+                else:
+                    metrics["missing_profile"] = True
+                
+                curr_style = current_track.get('style_hint')
+                next_style = track.get('style_hint')
+                curr_rhythm = current_track.get('rhythm_hint') or current_track.get('time_signature')
+                next_rhythm = track.get('rhythm_hint') or track.get('time_signature')
+                
+                if curr_style and next_style:
+                    if curr_style == next_style:
+                        score += 5
+                    elif curr_style in ['ballad', 'slow'] and next_style in ['eurobeat', 'fast', 'dance']:
+                        score -= 20
+                        metrics["style_penalty"] = True
+                    elif curr_style in ['eurobeat', 'fast', 'dance'] and next_style in ['ballad', 'slow']:
+                        score -= 15
+                        metrics["style_penalty"] = True
+                        if phase_name == "Cool-down":
+                            score += 10
+                    else:
+                        score -= 5
+                        metrics["style_penalty"] = True
+                
+                # ========== 【P0优化】降低time_signature权重，避免误检影响 ==========
+                # 原因：99.6%的歌曲都是4/4拍，功能失去区分度
+                # 修改：降低奖励（8→3）和惩罚（-25→-10），因为可能误检
+                if curr_rhythm and next_rhythm:
+                    if curr_rhythm == next_rhythm:
+                        score += 3  # 降低奖励（从8→3）
+                    elif (curr_rhythm == '3/4' and next_rhythm == '4/4') or (curr_rhythm == '4/4' and next_rhythm == '3/4'):
+                        score -= 10  # 降低惩罚（从-25→-10，因为可能误检）
+                        metrics["rhythm_penalty"] = True
+                    else:
+                        score -= 5  # 降低惩罚（从-8→-5）
+                        metrics["rhythm_penalty"] = True
+    
+                # ========== 第3优先级：质量过滤（BPM/Key Confidence） ==========
+                # 优化：使用置信度进行质量过滤，低置信度降低权重
+                # BPM Confidence质量过滤（权重1-2%）
+                curr_bpm_conf = current_track.get('bpm_confidence')
+                next_bpm_conf = track.get('bpm_confidence')
+                if curr_bpm_conf is not None and next_bpm_conf is not None:
+                    # 如果两首歌曲的BPM置信度都较低，降低BPM评分权重
+                    avg_bpm_conf = (curr_bpm_conf + next_bpm_conf) / 2.0
+                    if avg_bpm_conf < 0.5:
+                        # 低置信度：降低BPM评分权重（最多-10分）
+                        score -= int((0.5 - avg_bpm_conf) * 20)  # 0.5置信度时-0分，0.3置信度时-4分，0.0置信度时-10分
+                        metrics["low_bpm_confidence"] = avg_bpm_conf
+                    elif avg_bpm_conf > 0.8:
+                        # 高置信度：轻微奖励（最多+2分）
+                        score += int((avg_bpm_conf - 0.8) * 10)  # 0.8置信度时+0分，1.0置信度时+2分
+                        metrics["high_bpm_confidence"] = avg_bpm_conf
+                
+                # Key Confidence质量过滤（权重1-2%）
+                curr_key_conf = current_track.get('key_confidence')
+                next_key_conf = track.get('key_confidence')
+                if curr_key_conf is not None and next_key_conf is not None:
+                    # 如果两首歌曲的Key置信度都较低，降低Key评分权重
+                    avg_key_conf = (curr_key_conf + next_key_conf) / 2.0
+                    if avg_key_conf < 0.5:
+                        # 低置信度：降低Key评分权重（最多-8分）
+                        score -= int((0.5 - avg_key_conf) * 16)  # 0.5置信度时-0分，0.3置信度时-3.2分，0.0置信度时-8分
+                        metrics["low_key_confidence"] = avg_key_conf
+                    elif avg_key_conf > 0.8:
+                        # 高置信度：轻微奖励（最多+2分）
+                        score += int((avg_key_conf - 0.8) * 10)  # 0.8置信度时+0分，1.0置信度时+2分
+                        metrics["high_key_confidence"] = avg_key_conf
+                
+                # ========== 第4优先级：BPM Confidence硬约束（必须实施）⭐ ==========
+                # 优化：如果BPM置信度低（<0.6），标记为"不适合长混音"
+                # 强制建议Echo Out（而不是长混音）
+                if next_bpm_conf is not None and next_bpm_conf < 0.6:
+                    # BPM置信度低，标记为不适合长混音
+                    track['_low_bpm_confidence'] = True
+                    track['_suggest_echo_out'] = True  # 建议Echo Out
+                    # 不扣分，但标记为需要特殊处理
+                    metrics["low_bpm_confidence_hard"] = next_bpm_conf
+                
+                # ========== 第6优先级：Groove Density节奏匹配（新增） ==========
+                # 优化：使用Groove Density进行节奏匹配，识别Tech House/Afrobeat等风格
+                # Groove Density存储在energy_profile中
+                # 注意：curr_profile和next_profile在后面定义，这里需要重新获取
+                curr_profile_for_groove = current_track.get('energy_profile', {})
+                next_profile_for_groove = track.get('energy_profile', {})
+                curr_groove = curr_profile_for_groove.get('groove_density') if curr_profile_for_groove else None
+                next_groove = next_profile_for_groove.get('groove_density') if next_profile_for_groove else None
+                if curr_groove is not None and next_groove is not None:
+                    groove_diff = abs(curr_groove - next_groove)
+                    metrics["groove_density_diff"] = groove_diff
+                    
+                    if groove_diff < 0.15:
+                        # Groove Density非常接近，奖励（权重1-2%）
+                        score += 5  # 节奏紧凑度匹配，加分
+                        metrics["groove_match"] = True
+                    elif groove_diff < 0.25:
+                        # Groove Density接近，轻微奖励
+                        score += 2
+                        metrics["groove_match"] = True
+                    elif groove_diff > 0.5:
+                        # Groove Density差异很大，轻微惩罚（但允许，因为可能是风格切换）
+                        score -= 3
+                        metrics["groove_mismatch"] = True
+                
+                # ========== 第5优先级：Spectral Centroid能量类型判断（新增，如果存在） ==========
+                # 优化：使用Spectral Centroid判断能量类型（Deep/Bright），用于能量匹配
+                # Spectral Centroid可能存储在energy_profile中，如果不存在则跳过
+                # 注意：curr_profile和next_profile在后面定义，这里需要重新获取
+                curr_profile_for_spectral = current_track.get('energy_profile', {})
+                next_profile_for_spectral = track.get('energy_profile', {})
+                curr_spectral = curr_profile_for_spectral.get('spectral_centroid_mean') if curr_profile_for_spectral else None
+                next_spectral = next_profile_for_spectral.get('spectral_centroid_mean') if next_profile_for_spectral else None
+                if curr_spectral is not None and next_spectral is not None:
+                    spectral_diff = abs(curr_spectral - next_spectral)
+                    metrics["spectral_centroid_diff"] = spectral_diff
+                    
+                    # Spectral Centroid差异越小，音色越相似（Deep vs Bright）
+                    # 归一化差异（假设Spectral Centroid范围在1000-5000 Hz）
+                    normalized_diff = spectral_diff / 4000.0  # 归一化到0-1
+                    
+                    if normalized_diff < 0.1:
+                        # Spectral Centroid非常接近，奖励（权重1%）
+                        score += 3  # 能量类型匹配（Deep/Bright），加分
+                        metrics["spectral_match"] = True
+                    elif normalized_diff < 0.2:
+                        # Spectral Centroid接近，轻微奖励
+                        score += 1
+                        metrics["spectral_match"] = True
+                    # 差异较大时不惩罚，因为可能是风格切换（Deep → Bright）
+    
+                # ========== 第8优先级：Beat对齐和Drop对齐（极低权重，仅参考） ==========
+                # 重要调整：AI对流行歌曲的Drop和Beat Grid检测经常不准
+                # 将权重从30-100分大幅降低到5-10分，并且只在BPM置信度极高时才启用
+                # 不要让对齐问题影响BPM和调性的主排序逻辑
+                # P0-2优化：返回包含beatgrid_fix_hints的结果
+                beat_result = calculate_beat_alignment(current_track, track)
+                if len(beat_result) >= 4:
+                    beat_offset_diff, beat_alignment_score, beatgrid_fix_hints, needs_manual_align = beat_result
+                else:
+                    # 兼容旧版本（如果返回值只有2个）
+                    beat_offset_diff, beat_alignment_score = beat_result[:2]
+                    beatgrid_fix_hints = {}
+                    needs_manual_align = False
+                drop_offset_diff, drop_alignment_score = calculate_drop_alignment(current_track, track)
+                
+                metrics["beat_offset_diff"] = beat_offset_diff
+                metrics["drop_offset_diff"] = drop_offset_diff
+                metrics["beat_alignment_score"] = beat_alignment_score
+                metrics["drop_alignment_score"] = drop_alignment_score
+                
+                # 【优化2】优化强拍对齐检测：提高BPM置信度阈值，减少误报
+                # 条件1：BPM差≤3（收紧从≤5到≤3，只对BPM非常接近的歌曲进行对齐评分）
+                # 条件2：BPM置信度≥0.85（提高从≥0.7到≥0.85，只对高置信度BPM进行对齐评分）
+                # 条件3：beat_offset必须存在（避免使用默认值0导致误报）
+                avg_bpm_conf_for_alignment = (curr_bpm_conf + next_bpm_conf) / 2.0 if (curr_bpm_conf is not None and next_bpm_conf is not None) else 0.0
+                is_bpm_conf_acceptable = avg_bpm_conf_for_alignment >= 0.85  # 提高阈值到0.85
+                
+                # 【修复】检查downbeat_offset是否真实存在（不是默认值0）
+                curr_downbeat_offset = current_track.get('downbeat_offset', None)
+                next_downbeat_offset = track.get('downbeat_offset', None)
+                has_real_beat_offset = (curr_downbeat_offset is not None and curr_downbeat_offset != 0) or \
+                                       (next_downbeat_offset is not None and next_downbeat_offset != 0)
+                
+                if bpm_diff <= 3 and is_bpm_conf_acceptable and has_real_beat_offset:
+                    # ========== 【修复3】降低 Drop/Beat 对齐权重（100分→10-20分） ==========
+                    # 因为AI检测存在误差，不能让它拥有一票否决权
+                    # 将权重从 100分 降低到 10-20分（乘以 0.15 系数）
+                    # Beat对齐评分（权重10-20分，仅作为参考）
+                    if beat_offset_diff <= 0.5:
+                        score += 20  # 完美对齐，最高奖励20分（原100分→20分）
+                    elif beat_offset_diff <= 1.0:
+                        score += 15  # 优秀对齐，15分（原90分→15分）
+                    elif beat_offset_diff <= 2.0:
+                        score += 10  # 可接受对齐，10分（原70分→10分）
+                    elif beat_offset_diff <= 4.0:
+                        score += 5   # 轻微奖励，5分（原40分→5分）
+                    elif beat_offset_diff <= 8.0:
+                        score -= 5   # 严重错位，轻微惩罚-5分（不影响主排序）
+                    else:
+                        score -= 10  # 极严重错位，轻微惩罚-10分（不影响主排序）
+                elif bpm_diff > 3:
+                    # BPM差>3时，强拍对齐不可靠，不评分
+                    pass
+                elif not is_bpm_conf_acceptable:
+                    # BPM置信度不够高：不评分（提供参考信息，让DJ手动调整）
+                    pass
+                elif not has_real_beat_offset:
+                    # beat_offset不存在或为默认值：不评分（避免误报）
+                    pass
+                
+                # Drop对齐评分：只在BPM差≤2、BPM置信度极高且Drop时间已知时给予奖励
+                # 如果Drop时间未知（DROP_UNKNOWN），不评分
+                curr_drop = current_track.get('first_drop_time')
+                next_drop = track.get('first_drop_time')
+                has_drop_info = curr_drop is not None and next_drop is not None
+                
+                # 使用is_bpm_conf_acceptable代替未定义的is_bpm_conf_high
+                is_bpm_conf_high = avg_bpm_conf_for_alignment >= 0.90  # 更高阈值用于Drop对齐
+                if bpm_diff <= 2 and is_bpm_conf_high and has_drop_info:
+                    # ========== 【修复3】Drop对齐评分：降低权重（10-20分） ==========
+                    # 只有在BPM差≤2、BPM置信度极高且Drop时间已知时才给予奖励
+                    if drop_offset_diff <= 4.0:
+                        score += 20  # 完美Drop对齐，最高奖励20分（原100分→20分）
+                    elif drop_offset_diff <= 8.0:
+                        score += 15  # 优秀Drop对齐，15分（原80分→15分）
+                    elif drop_offset_diff <= 16.0:
+                        score += 10  # 可接受Drop对齐，10分（原60分→10分）
+                    # 偏移>16.0拍：不评分（提供参考信息，不惩罚）
+                # BPM差>2、BPM置信度不够高或Drop时间未知：不评分（提供参考信息，让DJ手动调整）
+    
+                # 【V6.3新增】混音兼容性综合评分
+                try:
+                    from mix_compatibility_scorer import calculate_mix_compatibility_score
+                    mix_score, mix_metrics = calculate_mix_compatibility_score(
+                        current_track, 
+                        track
+                    )
+                    # 权重8%（混音兼容性作为综合参考）
+                    score += mix_score * 0.08
+                    metrics["mix_compatibility_score"] = mix_score
+                    metrics["mix_compatibility_metrics"] = mix_metrics
+                    
+                    # 记录关键警告
+                    if mix_metrics.get('drop_clash'):
+                        metrics["mix_warning_drop_clash"] = True
+                    if mix_metrics.get('beat_offset_large'):
+                        metrics["mix_warning_beat_offset"] = True
+                except (ImportError, Exception):
+                    # 优雅降级：如果模块不存在或出错，不影响排序
+                    pass
+                
+                vocal_penalty, has_vocal_conflict = check_vocal_conflict(current_track, track)
+                score += vocal_penalty
+                metrics["vocal_conflict_penalty"] = vocal_penalty
+                metrics["has_vocal_conflict"] = has_vocal_conflict
+                
+                # ========== 【V4.0 Ultra+ 专家级增强】审美与 Mashup 联动评分 ==========
+                # 1. Aesthetic Curator: 审美匹配 (曲风/时代/情感) - 权重 15%
+                aesthetic_score, aesthetic_details = AESTHETIC_CURATOR.calculate_aesthetic_match(current_track, track)
+                score += aesthetic_score * 0.15
+                metrics["aesthetic_score"] = aesthetic_score
+                metrics["aesthetic_details"] = aesthetic_details
+                
+                # 2. Mashup Intelligence: 跨界桥接与 Stems 兼容 - 权重 15%
+                mashup_score, mashup_details = MASHUP_INTELLIGENCE.calculate_mashup_score(current_track, track)
+                score += mashup_score * 0.15
+                metrics["mashup_score"] = mashup_score
+                metrics["mashup_details"] = mashup_details
+                
+                # ========== 【V4.1 Neural Sync】深度神经同步评分 ==========
+                # A. 乐句长度匹配 (Phrase Parity) - 理想: 32拍+32拍
+                phrase_parity_bonus = 0
+                curr_outro_bars = current_track.get('outro_bars', 8)
+                next_intro_bars = track.get('intro_bars', 8)
+                if curr_outro_bars == next_intro_bars:
+                    phrase_parity_bonus = 25  # 物理量化完美契合
+                    score += phrase_parity_bonus
+                    metrics["phrase_parity_bonus"] = phrase_parity_bonus
+                
+                # B. 人声/伴奏互补 (Proactive Stem Synergy)
+                vocal_synergy_bonus = 0
+                # 【V5.2 HOTFIX】确保 vocal_ratio 不为 None
+                curr_v_ratio = current_track.get('outro_vocal_ratio') or 0.5
+                next_v_ratio = track.get('intro_vocal_ratio') or 0.5
+                # 如果一个是纯人声/重人声，另一个是纯伴奏/重伴奏
+                if (curr_v_ratio > 0.7 and next_v_ratio < 0.3) or (curr_v_ratio < 0.3 and next_v_ratio > 0.7):
+                    vocal_synergy_bonus = 20
+                    score += vocal_synergy_bonus
+                    metrics["vocal_synergy_bonus"] = vocal_synergy_bonus
+                    metrics["mashup_sweet_spot"] = True
+                
+                # C. 爆发点对齐 (Drop Alignment)
+                drop_align_bonus = 0
+                next_drop = track.get('first_drop_time')
+                if next_drop:
+                    # 检查 B 轨 Drop 是否能在大约 32-64 拍内通过 A 轨 Outro 引出
+                    # 这是一个简化的对齐评分
+                    drop_align_bonus = 5
+                    score += drop_align_bonus
+                    metrics["drop_align_bonus"] = drop_align_bonus
+                
+                # ========== 【P1优化】使用mixable_windows优化混音点 ==========
+                # 尝试使用mixable_windows优化混音点选择
+                optimized_mix_out, optimized_mix_in = optimize_mix_points_with_windows(current_track, track)
+                
+                # 如果优化成功，更新指标（用于后续持久化到音轨对象）
+                if optimized_mix_out is not None and optimized_mix_in is not None:
+                    # 记录优化值，确保 TXT 报告与 XML 强同步
+                    metrics["mix_points_optimized"] = True
+                    metrics["optimized_mix_out"] = optimized_mix_out
+                    metrics["optimized_mix_in"] = optimized_mix_in
+                    # 局部变量用于后续计算
+                    curr_mix_out = optimized_mix_out
+                    next_mix_in = optimized_mix_in
+                else:
+                    # 使用原始分析点
+                    curr_mix_out = current_track.get('mix_out_point')
+                    next_mix_in = track.get('mix_in_point')
+                
+                # 能量释放点优化 + 结构标签硬约束
+                curr_duration = current_track.get('duration', 0)
+                curr_structure = current_track.get('structure', {})
+                next_structure = track.get('structure', {})
+                
+                # 混音点计算（仅用于显示，不影响排序）
+                if curr_mix_out and next_mix_in and curr_duration > 0:
+                    # 修正混音点间隔计算：
+                    # curr_mix_out是当前歌曲的混出点（从开始计算的秒数）
+                    # next_mix_in是下一首歌曲的混入点（从开始计算的秒数）
+                    # 混音点间隔 = 下一首混入点 - (当前歌曲时长 - 当前混出点)
+                    mix_gap = next_mix_in - (curr_duration - curr_mix_out)
+                    metrics["mix_gap"] = mix_gap
+                    
+                    # 检查结构标签（仅用于标记警告，不影响排序）
+                    curr_mix_out_in_verse = False
+                    next_mix_in_in_verse = False
+                    
+                    if curr_structure:
+                        verses = curr_structure.get('verse', [])
+                        # 检查是否在Verse中间（仅标记，不扣分）
+                        for verse in verses:
+                            if verse[0] < curr_mix_out < verse[1]:
+                                curr_mix_out_in_verse = True
+                                break
+                    
+                    if next_structure:
+                        verses = next_structure.get('verse', [])
+                        # 检查是否在Verse中间（仅标记，不扣分）
+                        for verse in verses:
+                            if verse[0] < next_mix_in < verse[1]:
+                                next_mix_in_in_verse = True
+                                break
+                    
+                    # 标记警告（不影响排序）
+                    if curr_mix_out_in_verse or next_mix_in_in_verse:
+                        metrics["structure_warning"] = True
+                # ========== V3.0 Ultra+ 专家级补完：人声避让与物理审计 ==========
+                # 1. 人声安全锁 (Vocal Guard): 强制扣减 40% 分数 (V3.0 红线)
+                if metrics.get("has_vocal_conflict"):
+                    score *= 0.6 
+                    metrics["v3_vocal_shield_active"] = True
+                
+                # 2. 低音相位审计 (Bass Swap Detection)
+                curr_low = current_track.get('energy_profile', {}).get('low_energy', 0)
+                next_low = track.get('energy_profile', {}).get('low_energy', 0)
+                if curr_low > 0.6 and next_low > 0.6:
+                    metrics["bass_swap_required"] = True
+                    metrics["bass_swap_reason"] = f"双轨低频对撞 (Low Energy: {curr_low:.1f}/{next_low:.1f})"
+                
+                # 3. 律动感知 (Swing Matching)
+                # 确保 Swing 风格过渡平滑，避免 Straight 与 Heavy Swing 硬碰硬
+                curr_swing = current_track.get('swing_ratio') or current_track.get('analysis', {}).get('swing_ratio', 0.0)
+                next_swing = track.get('swing_ratio') or track.get('analysis', {}).get('swing_ratio', 0.0)
+                if abs(float(curr_swing) - float(next_swing)) > 0.4:
+                    score -= 25
+                    metrics["swing_mismatch_penalty"] = True
+                
+                # 4. 音色解析 (Synthesis Consistency)
+                # 保持音色合成类型的一致性 (Analog vs Digital)
+                curr_synth = current_track.get('synthesis_type') or current_track.get('analysis', {}).get('synthesis_type')
+                next_synth = track.get('synthesis_type') or track.get('analysis', {}).get('synthesis_type')
+                if curr_synth and next_synth and curr_synth != next_synth:
+                    score -= 15
+                    metrics["synthesis_jump_penalty"] = True
+                
+                candidate_results.append({
+                    "track": track,
+                    "score": score,
+                    "metrics": metrics,
                 })
+                
+                # ========== FULL DEBUG: 收集每个候选的完整评分信息 ==========
+                if debug_reporter:
+                    candidate_debug = {
+                        'track': {
+                            'title': track.get('title', 'Unknown'),
+                            'bpm': track.get('bpm', 0),
+                            'key': track.get('key', 'Unknown'),
+                            'energy': track.get('energy', 50),
+                            'file_path': track.get('file_path', 'Unknown'),
+                            'duration': track.get('duration', 0),
+                            'first_drop_time': track.get('first_drop_time'),
+                            'mix_in_point': track.get('mix_in_point'),
+                            'beat_offset': track.get('beat_offset'),
+                            'structure': track.get('structure', {}),
+                            'energy_profile': track.get('energy_profile', {})
+                        },
+                        'total_score': score,
+                        'scores': {
+                            'bpm_score': metrics.get('bpm_diff', 0),
+                            'bpm_change': (track.get('bpm', 0) - current_bpm) if current_bpm > 0 else 0,
+                            'key_score': metrics.get('key_score', 0),
+                            'energy_score': metrics.get('energy_diff', 0),
+                            'energy_phase': phase_name,
+                            'drop_alignment': metrics.get('drop_alignment', None),
+                            'beat_alignment': metrics.get('beat_offset_diff', None),
+                            'mix_gap': metrics.get('mix_gap', None),
+                            'percussive_diff': metrics.get('percussive_diff', None),
+                            'dyn_var_diff': metrics.get('dyn_var_diff', None),
+                            'style_penalty': metrics.get('style_penalty', False),
+                            'rhythm_penalty': metrics.get('rhythm_penalty', False),
+                            'phase_penalty': metrics.get('phase_penalty', False),
+                            'missing_profile': metrics.get('missing_profile', False)
+                        },
+                        'details': {
+                            'current_track_bpm': current_bpm,
+                            'current_track_key': current_track.get('key', 'Unknown'),
+                            'current_track_energy': current_track.get('energy', 50),
+                            'current_track_phase': current_track.get('assigned_phase', 'Unknown'),
+                            'target_phase': phase_name,
+                            'target_energy_range': (min_energy, max_energy),
+                            'all_metrics': metrics.copy()
+                        }
+                    }
+            except Exception as e:
+                if progress_logger:
+                    title = track.get("title", "Unknown")[:40]
+                    progress_logger.log(f"跳过故障音轨 {title}: {e}", console=False)
+                continue
         
         candidate_results.sort(key=lambda item: item["score"], reverse=True)
         has_close_bpm_option = any(

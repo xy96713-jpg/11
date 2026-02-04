@@ -11,28 +11,58 @@ const RenderCore = {
     init: () => {
         requestAnimationFrame(RenderCore.loop);
         RenderCore.initMiniCards();
+        RenderCore.setupGlobalListeners();
     },
 
-    loop: () => {
-        RenderCore.time += 0.01;
-
-        // Render all active mini-canvases
-        RenderCore.renderers.forEach(r => {
-            if (r.active && r.ctx) {
-                r.render(r.ctx, r.width, r.height, RenderCore.time, false); // isFull = false
+    setupGlobalListeners: () => {
+        // Dynamic Re-scale: 防止窗口缩放导致的模糊
+        window.addEventListener('resize', () => {
+            RenderCore.renderers.forEach(r => {
+                if (r.canvas) {
+                    const rect = r.canvas.parentElement.getBoundingClientRect();
+                    r.canvas.width = rect.width;
+                    r.canvas.height = rect.height;
+                    r.width = rect.width;
+                    r.height = rect.height;
+                }
+            });
+            // Also resize viewer if active
+            if (window.viewerCanvas) {
+                window.viewerCanvas.width = window.innerWidth;
+                window.viewerCanvas.height = window.innerHeight;
             }
         });
+    },
+
+    loop: (timestamp) => {
+        // Delta Time Calculation (144Hz 适配)
+        if (!RenderCore.lastTime) RenderCore.lastTime = timestamp;
+        const deltaTime = (timestamp - RenderCore.lastTime) / 1000;
+        RenderCore.lastTime = timestamp;
+
+        RenderCore.time += deltaTime;
+
+        // Condition 1: 全局渲染互斥 (当全屏预览激活时，挂起后台 mini-cards)
+        const isViewerActive = window.viewerActive && window.viewerRenderer;
+
+        if (!isViewerActive) {
+            // Render all active AND visible mini-canvases
+            RenderCore.renderers.forEach(r => {
+                if (r.active && r.inView && r.ctx) {
+                    // Skill 09 Anti-Magic: 使用逻辑时间而非简单累加，确保不同帧率一致性
+                    r.render(r.ctx, r.width, r.height, RenderCore.time, false);
+                }
+            });
+        }
 
         // Render full viewer if active
-        if (window.viewerActive && window.viewerRenderer) {
+        if (isViewerActive) {
             const ctx = window.viewerCtx;
             const width = window.viewerCanvas.width;
             const height = window.viewerCanvas.height;
-            // Clear
             ctx.fillStyle = '#020202';
             ctx.fillRect(0, 0, width, height);
-            // Render specific effect
-            window.viewerRenderer(ctx, width, height, RenderCore.time, true); // isFull = true
+            window.viewerRenderer(ctx, width, height, RenderCore.time, true);
         }
 
         requestAnimationFrame(RenderCore.loop);
@@ -48,21 +78,37 @@ const RenderCore = {
             { id: 'canvas-glitch', type: 'glitch' }
         ];
 
+        // Intersection Observer: 视口可见性审计
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                const renderer = RenderCore.renderers.find(r => r.canvas === entry.target);
+                if (renderer) {
+                    renderer.inView = entry.isIntersecting;
+                    // console.log(`Card ${renderer.id} visibility: ${entry.isIntersecting}`);
+                }
+            });
+        }, { threshold: 0.1 });
+
         effects.forEach(e => {
             const canvas = document.getElementById(e.id);
             if (canvas) {
-                // Resize handling
                 const rect = canvas.parentElement.getBoundingClientRect();
                 canvas.width = rect.width;
                 canvas.height = rect.height;
 
-                RenderCore.renderers.push({
+                const renderer = {
+                    id: e.id,
                     active: true,
+                    inView: false, // 初始不可见，等待 Observer 激活
+                    canvas: canvas,
                     ctx: canvas.getContext('2d'),
                     width: canvas.width,
                     height: canvas.height,
                     render: RenderAlgorithms[e.type]
-                });
+                };
+
+                RenderCore.renderers.push(renderer);
+                observer.observe(canvas);
             }
         });
     }
