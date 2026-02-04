@@ -8,13 +8,24 @@
 
 ---
 
-## ⚡ 协议 0: 内核继承 (Kernel Inheritance)
-本技能已进化为 **三位一体集成模组**。在启动任何任务前，必须调用以下内置“智脑”模块：
+## ⚡ 协议 0: 内核集成 (Kernel Integration)
+本技能已进化为 **三位一体集成模组**。在启动任何任务前，必须根据任务等级（Tier）激活内部智脑：
 
-1.  **Product Vision (Inner PM)**: 必须阅读并执行 `core/pm_governance/README.md` 中的决策宪法。
-2.  **Arch Logic (Inner Arch)**: 必须阅读并执行 `core/computational_arch/SKILL.md` 中的架构审计规则。
+### 1. 审计分级制度 (Tiered Audit)
+- **L1 (微操级)**: 如修改 CSS 颜色、微调文字。
+    - **执行**: Builder 直接动手，事后进行 VQA 截屏验证。
+- **L2 (组件级)**: 如创建静态 UI 卡片、重构简单 JS。
+    - **执行**: 强制通过 **Inner Arch (Skill 09)** 进行鲁棒性与性能审计，无需 PM 预审。
+- **L3 (系统级)**: 如开发新动效、构建多模态 UI。
+    - **执行**: **全量启动**。PM 确定审美调性 -> Arch 审计物理数学与性能配置 -> Builder 最终代码。
 
-> **规则**: 视觉实验室不再只是“画图工具”，它是受 PM 战略和架构审计闭环控制的 **Agentic Factory**。
+### 2. 性能预算锁 (Performance Budget)
+- **强制 144Hz**: 任何动效代码必须在 Inner Arch 阶段进行“掉帧预演”。
+- **GPU 压力管控**: WebGL/Canvas 渲染必须包含降级逻辑，性能开销严禁超过系统级阈值的 30%。
+
+### 3. 反向反馈制衡 (Reverse Feedback Loop)
+- **Builder 否决权**: 如果 Builder 在实现过程中发现 PM 定义的审美（如流体材质）在当前引擎下必掉帧，**必须反向质疑**。
+- **动作**: 触发“架构再协商”，强制 PM 降级审美或 Arch 优化算法，直到满足“惊艳且流畅”的双重红线。
 
 ---
 

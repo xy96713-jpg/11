@@ -47,3 +47,14 @@ description: 算法与计算几何专家 (Computational Architect) - 专注于�
 *   [GSAP Easing Algorithms](https://greensock.com/docs/v3/Eases)
 *   [WebGL Fundamentals](https://webglfundamentals.org/)
 *   [Clean Code: Error Handling](https://www.oreilly.com/library/view/clean-code/9780132350884/ch07.html)
+
+## 5. 性能与效率审计专章 (Performance Audit - NEW)
+
+### A. 144Hz 动作锁
+*   **审计标准**：所有 `requestAnimationFrame` 中的计算必须为“常数级”或“低对数级”。
+*   **禁止项**：禁止在渲染循环内进行复杂的 DOM 操作或高维矩阵求逆。
+*   **优化**：强制使用 `Float32Array` 管理粒子数据，减少 GC (Garbage Collection) 压力。
+
+### B. GPU 时钟预算
+*   **阈值控制**：Fragment Shader (片元着色器) 的计算密度严禁超过中端显卡 30% 负载。
+*   **动作**：如果检测到 Shader 复杂度过高（如多重高斯模糊叠加），必须提供 **"Draft Mode" (低保真渲染)** 降级。

@@ -21,13 +21,24 @@ import statistics
 from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# 【Phase 9】系统目录整合 - 动态调整路径以支持 D:\anti 结构
+# 【Phase 9】系统目录整合 - 动态检测项目根目录 (D:\anti)
 BASE_DIR = Path(__file__).parent
-for sub_dir in ["skills", "core", "config", "exporters", "agents"]:
-    sys.path.insert(0, str(BASE_DIR / sub_dir))
+PROJECT_ROOT = BASE_DIR
 
-# 添加 rekordbox-mcp 的父目录以支持 import rekordbox_mcp
-sys.path.insert(0, str(BASE_DIR / "core" / "rekordbox-mcp"))
+# 向上查找包含 exporters 或 core 的目录作为根目录
+for parent in [BASE_DIR] + list(BASE_DIR.parents):
+    if (parent / "exporters").exists() or (parent / "core").exists():
+        PROJECT_ROOT = parent
+        break
+
+for sub_dir in ["skills", "core", "config", "exporters", "agents"]:
+    target_path = PROJECT_ROOT / sub_dir
+    if not target_path.exists():
+        target_path = BASE_DIR / sub_dir
+    sys.path.insert(0, str(target_path))
+
+# 添加 rekordbox-mcp 的父目录支持
+sys.path.insert(0, str(PROJECT_ROOT / "core" / "rekordbox-mcp"))
 
 from exporters.xml_exporter import export_to_rekordbox_xml
 
@@ -1017,23 +1028,22 @@ def calculate_beat_alignment(current_track: dict, next_track: dict) -> Tuple[flo
         - beat_offset_diff: 强拍偏移（拍数）
         - alignment_score: 对齐评分（0-100，100表示完美对齐）
     """
-    curr_bpm = current_track.get('bpm', 0)
-    next_bpm = next_track.get('bpm', 0)
-    # 【修复】字段名应该是 downbeat_offset，不是 beat_offset
-    curr_beat_offset = current_track.get('downbeat_offset', 0)  # 第一拍偏移（可能是秒或拍）
-    next_beat_offset = next_track.get('downbeat_offset', 0)
-    curr_duration = current_track.get('duration', 0)
-    curr_mix_out = current_track.get('mix_out_point', curr_duration * 0.85)  # 默认85%处混出
-    next_mix_in = next_track.get('mix_in_point', 0)  # 默认开头混入
+    curr_bpm = float(current_track.get('bpm') or 0)
+    next_bpm = float(next_track.get('bpm') or 0)
+    curr_beat_offset = current_track.get('downbeat_offset', 0) or 0
+    next_beat_offset = next_track.get('downbeat_offset', 0) or 0
+    curr_duration = float(current_track.get('duration') or 0)
+    curr_mix_out = float(current_track.get('mix_out_point') or (curr_duration * 0.85 if curr_duration > 0 else 0))
+    next_mix_in = float(next_track.get('mix_in_point') or 0)
     
     # 【新增】获取拍号信息
-    curr_time_sig = current_track.get('time_signature', '4/4')
-    next_time_sig = next_track.get('time_signature', '4/4')
-    curr_beats_per_bar = current_track.get('beats_per_bar', 4)
-    next_beats_per_bar = next_track.get('beats_per_bar', 4)
+    curr_time_sig = current_track.get('time_signature', '4/4') or '4/4'
+    next_time_sig = next_track.get('time_signature', '4/4') or '4/4'
+    curr_beats_per_bar = int(current_track.get('beats_per_bar') or 4)
+    next_beats_per_bar = int(next_track.get('beats_per_bar') or 4)
     
     if curr_bpm <= 0 or next_bpm <= 0 or curr_duration <= 0:
-        return (0.0, 50.0)  # 数据缺失，返回中等评分
+        return (999.0, 50.0, {}, False)  # 数据缺失，返回中等评分和极大偏移
     
     # ========== 【修复1C】数学修复：单位归一化 ==========
     # 统一 normalize downbeat_offset 单位到 beats（便于比较）
@@ -1171,16 +1181,16 @@ def calculate_drop_alignment(current_track: dict, next_track: dict) -> Tuple[flo
         - drop_offset_diff: Drop偏移（拍数）
         - alignment_score: 对齐评分（0-100，100表示完美对齐）
     """
-    curr_bpm = current_track.get('bpm', 0)
-    next_bpm = next_track.get('bpm', 0)
-    curr_first_drop = current_track.get('first_drop_time', None)
-    next_first_drop = next_track.get('first_drop_time', None)
-    curr_duration = current_track.get('duration', 0)
-    curr_mix_out = current_track.get('mix_out_point', curr_duration * 0.85)
-    next_mix_in = next_track.get('mix_in_point', 0)
+    curr_bpm = float(current_track.get('bpm') or 0)
+    next_bpm = float(next_track.get('bpm') or 0)
+    curr_first_drop = current_track.get('first_drop_time')
+    next_first_drop = next_track.get('first_drop_time')
+    curr_duration = float(current_track.get('duration') or 0)
+    curr_mix_out = float(current_track.get('mix_out_point') or (curr_duration * 0.85 if curr_duration > 0 else 0))
+    next_mix_in = float(next_track.get('next_mix_in') or track.get('mix_in_point') or 0) # 兼容不同命名
     
     if curr_bpm <= 0 or next_bpm <= 0 or curr_duration <= 0:
-        return (0.0, 50.0)  # 数据缺失，返回中等评分
+        return (999.0, 50.0)  # 数据缺失，返回中等评分和极大偏移
     
     # ========== 修复：BPM差>5时，drop对齐已经不可能 ==========
     bpm_diff = abs(curr_bpm - next_bpm)
@@ -1465,7 +1475,14 @@ def get_energy_phase_target(current_position: float, total_tracks: int,
     
     # 【V5优化】优先使用蓝图引擎进行阶段分配
     if BLUEPRINT_ENABLED:
-        base_min, base_max, phase_name, _ = BLUEPRINTER.get_phase_target(progress)
+        try:
+            res = BLUEPRINTER.get_phase_target(progress)
+            base_min = float(res[0] if res[0] is not None else 40)
+            base_max = float(res[1] if res[1] is not None else 70)
+            phase_name = str(res[2] if res[2] is not None else "General")
+        except Exception as e:
+            print(f"[WARN] SetBlueprinter error: {e}")
+            base_min, base_max, phase_name = (40, 70, "General")
     else:
         # 【备选】硬分配阶段逻辑
         if progress <= 0.20:
@@ -2564,13 +2581,18 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
     if not tracks:
         return [], [], {}
     
-    # ========== 【P0优化】过滤异常时长歌曲 ==========
-    # 原因：诊断发现duration范围异常（1.77秒~1942秒）
-    # 修改：过滤<30秒或>600秒的歌曲
+    # ========== 【P0优化 P1】过滤异常时长并清洗数据 ==========
     filtered_tracks = []
     abnormal_tracks = []
     for track in tracks:
-        duration = track.get('duration', 0)
+        if not isinstance(track, dict): continue
+        # 强制清洗：确保关键数值字段不为 None
+        track['duration'] = float(track.get('duration') or 0)
+        track['bpm'] = float(track.get('bpm') or 0)
+        track['energy'] = float(track.get('energy') or 50)
+        track['key'] = str(track.get('key') or "未知")
+        
+        duration = track['duration']
         if 30 <= duration <= 600:  # 30秒-10分钟
             filtered_tracks.append(track)
         else:
@@ -2705,8 +2727,8 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
         }
         
         # 获取当前阶段的能量目标（考虑当前BPM和能量值）
-        current_bpm = current_track.get('bpm', 0)
-        current_energy = current_track.get('energy', 50)
+        current_bpm = float(current_track.get('bpm') or 0)
+        current_energy = float(current_track.get('energy') or 50)
         min_energy, max_energy, phase_name = get_energy_phase_target(
             len(sorted_tracks), len(tracks), current_bpm, current_energy, sorted_tracks, current_track
         )
@@ -2724,13 +2746,13 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
         for track in remaining_tracks:
             if track.get('_used'):
                 continue
-            next_bpm = track.get('bpm', 0)
+            next_bpm = float(track.get('bpm') or 0)
             bpm_diff = abs(current_bpm - next_bpm) if current_bpm > 0 and next_bpm > 0 else 0
             
             # 完全移除BPM限制，所有歌曲都可以进入候选池
             # 计算能量匹配度（第2优先级）
-            energy = track.get('energy', 50)
-            energy_diff = abs(energy - current_track.get('energy', 50))
+            energy = float(track.get('energy') or 50)
+            energy_diff = abs(energy - current_energy)
             
             # 检查调性兼容性（第3优先级，使用5度圈和T字法）
             key_score = get_key_compatibility_flexible(
@@ -2776,9 +2798,10 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
             if track.get('_used'):
                 continue
             
-            next_bpm = track.get('bpm', 0)
+            next_bpm = float(track.get('bpm') or 0)
             bpm_diff = abs(current_bpm - next_bpm)
             
+            # 初始化评分指标
             metrics = {
                 "bpm_diff": bpm_diff,
                 "key_score": None,
@@ -2802,7 +2825,7 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
             if is_boutique:
                 # 调性兼容度预计算
                 k_score = get_key_compatibility_flexible(current_track.get('key', ''), track.get('key', ''))
-                energy_diff = abs(track.get('energy', 50) - current_track.get('energy', 50))
+                energy_diff = abs(float(track.get('energy') or 50) - current_energy)
                 
                 # Tier 1 (Gold): 极致平滑 (BPM diff <= 8, Key Score >= 90, Energy Jump <= 25)
                 # Tier 2 (Silver): 专业标准 (BPM diff <= 12, Key Score >= 75) -> 扣 150 分
@@ -2826,8 +2849,7 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
             bpm_change = next_bpm - current_bpm  # 正数=上升，负数=下降
             
             # 获取能量变化（用于判断是否是breakdown过渡）
-            current_energy = current_track.get('energy', 50)
-            next_energy = track.get('energy', 50)
+            next_energy = float(track.get('energy') or 50)
             energy_diff = next_energy - current_energy  # 正数=能量上升，负数=能量下降
             
             # 判断是否是breakdown过渡（BPM下降且能量也下降）
@@ -2919,7 +2941,7 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
             if any(keyword in current_genre or keyword in next_genre for keyword in ['tech house', 'hard trance', 'hardstyle']):
                 is_fast_switch = True
             # 高能量歌曲通常可以快速切换
-            if current_track.get('energy', 50) > 70 or track.get('energy', 50) > 70:
+            if (current_energy > 70) or (float(track.get('energy') or 50) > 70):
                 is_fast_switch = True
             
             # ========== 第2优先级：调性兼容性（修复版，降低权重确保BPM优先） ==========
@@ -2994,8 +3016,7 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
                         pass
             
             # 第2优先级：能量（根据阶段动态调整权重）
-            energy = track.get('energy', 50)
-            current_energy = current_track.get('energy', 50)
+            energy = float(track.get('energy') or 50)
             energy_diff = abs(energy - current_energy)
             
             # 根据阶段动态调整能量权重
