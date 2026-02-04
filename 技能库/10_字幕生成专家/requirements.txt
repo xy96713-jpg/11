@@ -1,6 +1,6 @@
 faster-whisper
-torch
 demucs
-soundfile
+torch
+torchaudio
+ffmpeg-python
 numpy
-tqdm

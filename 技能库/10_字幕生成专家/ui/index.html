@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Antigravity Subtitle Lab 2.0 | DJ Edition</title>
+    <link rel="stylesheet" href="index.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="bg-mesh">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+
+    <div class="container">
+        <header>
+            <div class="logo">Subtitle Lab 2.0</div>
+            <h1 class="title">DJ 级人声分离与字幕引擎</h1>
+            <p class="subtitle">基于 Demucs & Faster-Whisper | 2026 结项标准</p>
+        </header>
+
+        <main class="dashboard">
+            <div class="upload-section bento-card span-2">
+                <div class="card-content">
+                    <span class="card-tag">Audio Input</span>
+                    <h2 class="card-title">音频投递区</h2>
+                    <p class="card-desc">支持 MP3, WAV, FLAC | 自动执行人声脱壳</p>
+                    
+                    <div class="drop-zone" id="drop-zone">
+                        <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                        <p>拖拽混音音频至此，或 <span>点击浏览</span></p>
+                        <input type="file" id="file-input" hidden accept="audio/*">
+                    </div>
+                </div>
+            </div>
+
+            <div class="status-section bento-card">
+                <div class="card-content">
+                    <span class="card-tag">Process Monitor</span>
+                    <h2 class="card-title">处理状态</h2>
+                    <div class="status-list">
+                        <div class="status-item" id="step-separation">
+                            <span class="dot"></span>
+                            <span class="text">人声轨道分离 (Demucs)</span>
+                        </div>
+                        <div class="status-item" id="step-transcription">
+                            <span class="dot"></span>
+                            <span class="text">高精语音转录 (Whisper)</span>
+                        </div>
+                        <div class="status-item" id="step-srt">
+                            <span class="dot"></span>
+                            <span class="text">SRT 时间轴对齐</span>
+                        </div>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="options-section bento-card">
+                <div class="card-content">
+                    <span class="card-tag">Engine Config</span>
+                    <h2 class="card-title">专业参数</h2>
+                    <div class="control-group">
+                        <label>重叠忽略阈值</label>
+                        <input type="range" min="0" max="100" value="85" class="slider">
+                        <span class="value-display">85% (高精度)</span>
+                    </div>
+                    <div class="control-group">
+                        <label>处理模式</label>
+                        <select class="custom-select">
+                            <option value="cuda">GPU 加速 (CUDA)</option>
+                            <option value="cpu">标准模式 (CPU)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="result-section bento-card span-3" id="result-view" style="display: none;">
+                <div class="card-content">
+                    <span class="card-tag">Output Gallery</span>
+                    <div class="result-header">
+                        <h2 class="card-title">生成结果</h2>
+                        <button class="btn-download"><i class="fas fa-download"></i> 下载 SRT</button>
+                    </div>
+                    <div class="srt-preview">
+                        <pre id="srt-content">1
+00:00:01,000 --> 00:00:04,500
+[等待音频处理...]</pre>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+</html>
