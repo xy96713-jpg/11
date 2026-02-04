@@ -6,7 +6,7 @@
 
 | ID | 技能名称 | 📂 目录名 | 🔴 激活指令 (Triggers) |
 | :--- | :--- | :--- | :--- |
-| **00** | **👑 GOD PM CORE (System Governance)** | `system_governance` | `/pm-mode`<br>`Solve-PM` |
+| **00** | **👑 GOD PM CORE (System Governance)** | `00_system_governance` | `/pm-mode`<br>`Solve-PM` |
 | **01** | **🧠 深度研究 (Deep Research & NotebookLM Aligned)** | `01_深度研究` | (自动激活/无需指令) |
 | **02** | **🎵 音乐下载专家 V8.8 (Music Download Expert)** | `02_音乐下载` | (自动激活/无需指令) |
 | **03** | **🎧 DJ 智能助手 (DJ Intelligence / Master DJ V7.5 Pro)** | `03_DJ智能助手` | (自动激活/无需指令) |
@@ -20,7 +20,7 @@
 
 ## 📦 技能模块 (点击进入查看详情)
 
-*   **[👑 GOD PM CORE (Meta-Protocol)](技能库/system_governance)** —— **统治级协议**。定义了 PM 的决策逻辑与系统治理宪法。
+*   **[👑 GOD PM CORE (Meta-Protocol)](技能库/00_system_governance)** —— **统治级协议**。定义了 PM 的决策逻辑与系统治理宪法。
 *   **[🧠 深度研究 (NotebookLM Aligned)](技能库/01_深度研究)** —— **核心推荐**。集成全网知识抓取、长文档摘要与实证问答。
 *   **[🎵 音乐下载 (Smart Waterfall)](技能库/02_音乐下载)** —— **New (V8.8)**。全域瀑布流搜索，自动补全封面与标签。
 *   **[🎧 DJ 助手 (Master DJ V7.5 Pro)](技能库/03_DJ智能助手)** —— **核心推荐**。防撞车混音排布与调性分析。
@@ -29,7 +29,7 @@
 *   **[⚡ 全域解决方案](技能库/06_全域解决方案)** —— 搜索三位一体架构 (MCP + GitHub)。
 *   **[📉 短视频分析](技能库/07_短视频分析)** —— **New**。抖音/TikTok 笔记与关键帧提取。
 *   **[🎚️ 高级混音 (Mashup)](技能库/08_高级混音)** —— 自动化 Bootleg 制作工具。
-*   **[📐 算法与计算几何专家](技能库/09_computational_architect)** —— **New (V8.9)**。数学物理推导与白盒代码审计专家。
+*   **[📐 算法与计算几何专家](技能库/09_computational_architect)** —— **New (V9.0)**。数学物理推导与白盒代码审计专家。
 
 ---
 

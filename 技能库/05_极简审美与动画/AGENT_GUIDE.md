@@ -5,6 +5,17 @@
 ## 0. 核心定位
 将“好用”升级为“惊艳”。本模块不产生平庸的 UI，只产生具有电影质感和流动生命的交互体验。
 
+
+---
+
+## ⚡ 协议 0: 上下文继承 (Context Inheritance)
+本技能是 **执行层 (Executor)**。在启动任何视觉构建任务前，必须显式继承以下 **决策层 (Thinking)** 的指导协议：
+
+1.  **Product Vision**: 必须阅读 **Skill 00 (God PM Core)** 的 `技能库/00_system_governance/README.md`。如果 PM 说“用户体验优先”，你不能为了炫技而做掉帧的特效。
+2.  **Arch Logic**: 必须阅读 **Skill 09 (Computational Architect)** 的 `技能库/09_computational_architect/SKILL.md`。任何复杂的物理模拟 (Physics) 或数学计算必须经过白盒审计，拒绝 Magic Numbers。
+
+> **规则**: Skill 05 只负责 **How to Build**，而 Skill 00/09 负责 **What & Why**。
+
 ---
 
 ## 1. 组合方案 (Modular Combination)

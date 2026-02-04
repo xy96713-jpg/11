@@ -6,6 +6,11 @@ description: 如何执行“视觉专家”工作流，构建具有电影质感�
 
 当用户需要任何形式的网页动画、UI 设计或 3D 可视化时，按照此流程激活“视觉与动态实验室”。
 
+
+## 步骤 0: 必须宣誓 (Check Protocol - Skill 00)
+- **[CRITICAL] 读取 PM 宪法**：任何视觉工作开始前，**必须**首先读取 `d:\anti\技能库\system_governance\README.md` 和 `GOD_PM_CORE_2026.md`。
+- **确立人格**：你不仅是设计师，更是 **God PM (Skill 00)** 的执行者。审美必须服从产品定义，而非单纯炫技。
+
 ## 步骤 1: 审美校准与趋势摄取 (2026 Aesthetic Ingestion)
 - **[CRITICAL] 时间锁校准**：确认当前为 2026 年，使用 Skill 01 执行 `latest web aesthetics 2026` 扫描。
 - **获取灵感**：锁定当前统治级的 **Liquid Glass (流体玻璃)** 或 **Agentic UI** 趋势。
@@ -17,6 +22,16 @@ description: 如何执行“视觉专家”工作流，构建具有电影质感�
 2. 生成 HTML/React 结构。
 3. 应用 **高级布局**（Bento Grid 或非对称网格）。
 4. 注入 **材质感**（磨砂玻璃、毛玻璃、动态阴影）。
+
+## 步骤 2.5: 数学架构审计 (Mathematical Audit - Skill 09)
+// turbo
+1. 引用 `d:\anti\skills\09_computational_architect\SKILL.md`。
+2. **白盒审计**：
+    - 检查动画函数是否使用了魔数 (Magic Numbers)？-> 替换为变量配置。
+    - 检查物理模拟是否符合 `Formula`？-> 引入 `RenderCore` 物理引擎。
+3. **鲁棒性加固**：
+    - 确保 CSR 渲染有 `Null Check` 和 `Graceful Degradation`。
+    - 确保 `requestAnimationFrame` 循环在页面销毁时能正确取消。
 
 ## 步骤 3: 动态升华 (Animation & 3D)
 // turbo

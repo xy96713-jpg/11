@@ -16,7 +16,7 @@ try:
     for i, line in enumerate(lines):
         if "score = -boutique_penalty" in line:
             start_idx = i
-        if "candidate_tracks_with_score.append((score" in line and i > start_idx:
+        if "candidate_results.append({" in line and i > start_idx:
             end_idx = i
             break
 
