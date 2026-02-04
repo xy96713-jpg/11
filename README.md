@@ -1,4 +1,4 @@
-# 🤖 Antigravity 智能体技能中心 (Antigravity Skills - V10.0 Consolidated)
+# 🤖 Antigravity 智能体技能中心 (Antigravity Skills - V10.1 Consolidated)
 
 您的专属智能体“大脑”仓库。这里存放着所有经过优化的 AI 技能模块。
 
@@ -14,6 +14,7 @@
 | **06** | **🧠 全域解决方案架构师 (Universal Solutions Architect)** | `06_全域解决方案` | "solve"<br>""solve""<br>"给个方案" |
 | **07** | **📉 短视频智能分析 (Short Video Intelligence)** | `07_短视频分析` | (自动激活/无需指令) |
 | **08** | **🎚️ 高级混音大师 (Mashup Intelligence)** | `08_高级混音` | (自动激活/无需指令) |
+| **10** | **🎬 字幕生成专家 (Subtitle & Lyricist Pro)** | `10_字幕生成专家` | (自动激活/无需指令) |
 
 > [!IMPORTANT]
 > **原 Skill 00 (PM Core) 与 Skill 09 (Arch) 已深度集成至 Skill 05 (视觉实验室) 内核中，作为其“规则引擎”与“审计专家”运行。**
@@ -28,6 +29,7 @@
 *   **[⚡ 全域解决方案](技能库/06_全域解决方案)** —— 搜索三位一体架构 (MCP + GitHub)。
 *   **[📉 短视频分析](技能库/07_短视频分析)** —— **New**。抖音/TikTok 笔记与关键帧提取。
 *   **[🎚️ 高级混音 (Mashup)](技能库/08_高级混音)** —— 自动化 Bootleg 制作工具。
+*   **[🎬 字幕生成专家 (Visual Gallery Aligned)](技能库/10_字幕生成专家)** —— **New (V10.1)**。支持文本到动态歌词的自动化转换，与视觉画廊深度集成。
 
 ---
 

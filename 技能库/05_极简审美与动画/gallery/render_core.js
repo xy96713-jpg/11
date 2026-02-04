@@ -75,7 +75,10 @@ const RenderCore = {
             { id: 'canvas-mesh', type: 'mesh' },
             { id: 'canvas-gravity', type: 'gravity' },
             { id: 'canvas-retro', type: 'retro' },
-            { id: 'canvas-glitch', type: 'glitch' }
+            { id: 'canvas-glitch', type: 'glitch' },
+            { id: 'canvas-city', type: 'city-lite' },
+            { id: 'canvas-nj', type: 'nj-lite' },
+            { id: 'canvas-nuclear', type: 'nuclear-lite' }
         ];
 
         // Intersection Observer: 视口可见性审计
@@ -219,23 +222,108 @@ const RenderAlgorithms = {
         ctx.stroke();
     },
 
-    // 4. Glitch
-    glitch: (ctx, w, h, time, isFull) => {
-        if (!isFull) ctx.clearRect(0, 0, w, h);
-
-        if (Math.random() > 0.9) {
-            const x = Math.random() * w;
-            const y = Math.random() * h;
-            const rw = Math.random() * 100;
-            const rh = Math.random() * 10;
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(x, y, rw, rh);
+    // 5. City Lite (LOD 0 for CityFlow)
+    'city-lite': (ctx, w, h, time, isFull) => {
+        if (!isFull) {
+            ctx.fillStyle = '#101018'; // Dark city bg
+            ctx.fillRect(0, 0, w, h);
         }
 
-        ctx.fillStyle = `rgba(0, 255, 0, 0.1)`;
-        ctx.font = '20px monospace';
-        if (Math.floor(time * 10) % 5 === 0) {
-            ctx.fillText("SYSTEM FAILURE", Math.random() * w, Math.random() * h);
+        // Neon Lines flowing
+        const count = 15;
+        ctx.lineWidth = 2;
+
+        for (let i = 0; i < count; i++) {
+            const y = (h / count) * i + Math.sin(time + i) * 10;
+            const speed = (i % 2 === 0 ? 100 : -100) * ((i + 1) / count);
+            const x = (time * speed) % w;
+            const finalX = x < 0 ? x + w : x;
+
+            // Neon Gradient
+            const gradient = ctx.createLinearGradient(finalX, y, finalX + 100, y);
+            gradient.addColorStop(0, 'rgba(0, 243, 255, 0)');
+            gradient.addColorStop(0.5, i % 3 === 0 ? '#ff0055' : '#00f3ff'); // Cyberpunk Colors
+            gradient.addColorStop(1, 'rgba(0, 243, 255, 0)');
+
+            ctx.strokeStyle = gradient;
+            ctx.beginPath();
+            ctx.moveTo(finalX, y);
+            ctx.lineTo(finalX + 80, y); // Trail length
+            ctx.stroke();
+        }
+    },
+
+    // 6. NJ Lite (LOD 0 for NewJeans Attributes)
+    'nj-lite': (ctx, w, h, time, isFull) => {
+        if (!isFull) {
+            ctx.clearRect(0, 0, w, h);
+        }
+
+        // Sparkles (Blinking Stars)
+        const count = 20;
+
+        for (let i = 0; i < count; i++) {
+            // Deterministic Randomness based on index
+            const seed = i * 123.45;
+            const x = (Math.sin(seed) * 0.5 + 0.5) * w;
+            const y = (Math.cos(seed * 0.9) * 0.5 + 0.5) * h;
+
+            // Twinkle Logic
+            const twinkle = Math.sin(time * 3 + seed); // -1 to 1
+            const alpha = Math.max(0, twinkle);
+
+            if (alpha > 0.01) {
+                ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                ctx.beginPath();
+                // Draw Star shape (simplified as diamond)
+                const size = 3 * alpha;
+                ctx.moveTo(x, y - size);
+                ctx.lineTo(x + size, y);
+                ctx.lineTo(x, y + size);
+                ctx.lineTo(x - size, y);
+                ctx.fill();
+            }
+        }
+    },
+
+    // 7. Nuclear Lite (LOD 0 for Nuclear Core)
+    'nuclear-lite': (ctx, w, h, time, isFull) => {
+        if (!isFull) {
+            ctx.fillStyle = 'rgba(20, 0, 0, 0.2)'; // Slow trail
+            ctx.fillRect(0, 0, w, h);
+        }
+
+        const cx = w / 2;
+        const cy = h / 2;
+
+        // Pulsing Core
+        const pulse = Math.sin(time * 5) * 0.5 + 0.5; // 0 to 1
+        const radius = 20 + pulse * 10;
+
+        // Core Glow
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius * 2);
+        grad.addColorStop(0, '#ffcc00'); // Hot center
+        grad.addColorStop(0.5, '#ff4e50'); // Red rim
+        grad.addColorStop(1, 'rgba(255, 0, 0, 0)');
+
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Electrons
+        const electrons = 3;
+        ctx.strokeStyle = '#ff4e50';
+        ctx.lineWidth = 1;
+
+        for (let i = 0; i < electrons; i++) {
+            const rot = time * 2 + i * (Math.PI * 2 / electrons);
+            const ex = cx + Math.cos(rot) * 40;
+            const ey = cy + Math.sin(rot) * 40;
+
+            ctx.beginPath();
+            ctx.arc(ex, ey, 2, 0, Math.PI * 2);
+            ctx.stroke(); // Hollow electrons
         }
     }
 };

@@ -76,11 +76,13 @@ except ImportError as e:
     print(f"导入错误: {e}")
     sys.exit(1)
 
-# 导入深度分析
+# 导入深度分析 (添加正确的路径)
 try:
+    sys.path.insert(0, r"d:\anti\core")
     from strict_bpm_multi_set_sorter import deep_analyze_track
-except:
-    def deep_analyze_track(file_path, db_bpm=None):
+except Exception as e:
+    print(f"Warning: 无法导入深度分析模块: {e}")
+    def deep_analyze_track(file_path, db_bpm=None, **kwargs):
         return None
 
 # 导入质量监控
@@ -5537,7 +5539,7 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
                                     content_uuid=content.UUID,
                                     title=content.Title or "",
                                     artist=content.ArtistName or "",
-                                    file_path=content.FilePath or "",
+                                    file_path=getattr(content, 'FolderPath', "") or getattr(content, 'FilePath', "") or "",
                                     bpm=content.Tempo / 100.0 if content.Tempo else None,
                                     key=content.KeyName or "",
                                     energy=None
@@ -5559,6 +5561,69 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
                     print(f"DEBUG: Sample {i+1}: {getattr(t, 'title', 'N/A')} | Path: {getattr(t, 'file_path', 'N/A')}")
             except: pass
             print(f"播放列表中共有 {len(tracks_raw)} 首歌曲")
+
+            # [Fix-V14] Hydrate Paths: Ensure all tracks have valid file paths (Handle E:->D: and FolderPath)
+            print("正在验证并修复文件路径...")
+            hydrated_tracks = []
+            try:
+                from sqlalchemy import text
+                # Reuse existing pyrekordbox_db or create new connection
+                if 'pyrekordbox_db' in locals() or 'pyrekordbox_db' in globals():
+                    db_instance = pyrekordbox_db
+                else:
+                    from pyrekordbox import db6
+                    db_instance = db6.Rekordbox6Database()
+
+                for t in tracks_raw:
+                    tid = getattr(t, 'id', None) or getattr(t, 'ID', None)
+                    current_path = getattr(t, 'file_path', None)
+                    
+                    # If path is missing or doesn't exist, try to revive it
+                    if not current_path or not os.path.exists(current_path):
+                        if tid:
+                            try:
+                                with db_instance.session.no_autoflush: # Use context for safety
+                                    # Fetch FolderPath specifically
+                                    res = db_instance.session.execute(
+                                        text("SELECT FolderPath, Title, ArtistName, TEMPO, KeyName FROM djmdContent WHERE ID = :id"), 
+                                        {"id": tid}
+                                    ).fetchone()
+                                    
+                                    if res and res[0]:
+                                        fpath = res[0]
+                                        # Apply Remapping
+                                        if fpath.startswith('E:'):
+                                            remap = fpath.replace('E:', 'D:', 1)
+                                            if os.path.exists(remap):
+                                                fpath = remap
+                                        
+                                        # Update track object or wrap it
+                                        # Since we can't easily modify compiled objects, we create a dynamic wrapper
+                                        class HydratedTrack:
+                                            pass
+                                        ht = HydratedTrack()
+                                        ht.id = tid
+                                        ht.content_uuid = getattr(t, 'content_uuid', None)
+                                        ht.title = res[1] or getattr(t, 'title', "")
+                                        ht.artist = res[2] or getattr(t, 'artist', "")
+                                        ht.file_path = fpath
+                                        ht.bpm = (res[3] / 100.0) if res[3] else getattr(t, 'bpm', None)
+                                        ht.key = res[4] or getattr(t, 'key', "")
+                                        hydrated_tracks.append(ht)
+                                        # print(f"  [Repaired] {ht.title} -> {ht.file_path}")
+                                        continue
+                            except Exception as e:
+                                # print(f"  [Hydrate Error] {e}")
+                                pass
+                    
+                    # Keep original if valid or repair failed
+                    hydrated_tracks.append(t)
+                
+                tracks_raw = hydrated_tracks
+                print(f"验证后有效音轨数: {len([t for t in tracks_raw if getattr(t, 'file_path', None) and os.path.exists(getattr(t, 'file_path', None))])}")
+                
+            except Exception as e:
+                print(f"Path hydration skipped due to error: {e}")
             
             # 【V3.0 ULTRA+ 修复】添加去重逻辑：按 file_path 去重
             seen_paths = set()
@@ -5730,7 +5795,7 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
             # 计算混音窗口长度 (Mix Windows)
             entry_bars = 0
             exit_bars = 0
-            track_bpm = analysis.get('bpm') or db_bpm or 120
+            track_bpm = (analysis.get('bpm') if analysis else None) or db_bpm or 120
             
             if hotcue_A and hotcue_B:
                 entry_bars = round(((hotcue_B - hotcue_A) * (track_bpm / 60.0)) / 4.0)
@@ -5791,7 +5856,7 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
                 'bpm': analysis.get('bpm') if analysis else (db_bpm or 120),
                 'key': final_key,
                 'energy': analysis.get('energy') if analysis else 50,
-                'duration': (ai_data.get('format', {}).get('duration') if ai_data else None) or (analysis.get('duration') if analysis else 180),
+                'duration': (ai_data.get('format', {}).get('duration') if ai_data else None) or (analysis.get('duration') if analysis else None) or 180,
                 'mix_in_point': final_mix_in,
                 'mix_out_point': final_mix_out,
                 'hotcue_A': hotcue_A,

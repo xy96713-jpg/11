@@ -1,0 +1,6 @@
+faster-whisper
+torch
+demucs
+soundfile
+numpy
+tqdm
