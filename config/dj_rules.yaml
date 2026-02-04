@@ -37,6 +37,6 @@ bpm_range_max: 195.0              # Maximum acceptable BPM for popular music
 
 # Set Split Rules
 split:
-  target_duration_minutes: 45.0   # Default target set length
-  min_songs: 5                    # Minimum songs per set (Lowered for Mini-Sets)
+  target_duration_minutes: 90.0   # Default target set length (increased for professionalism)
+  min_songs: 20                   # Minimum songs per set (Ensuring sufficient length)
   max_songs: 60                   # Maximum songs per set

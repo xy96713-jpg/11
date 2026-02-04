@@ -180,41 +180,30 @@ def download_and_search(query, filename=None, video_id=None):
 
 
     # --- 封面与标签处理 ---
-    print("🎨 正在注入高品质封面与 ID3 标签...")
+    print("🎨 正在获取高品质封面 (API & 本地优先)...")
     
-    # 获取元数据
-    itunes_data = get_itunes_metadata(query)
-    
-    # 备选封面
-    thumbnails = entry.get('thumbnails', [])
-    video_cover_url = thumbnails[-1]['url'] if thumbnails else None
-    
-    # [V7.1] 多源封面获取策略: iTunes -> MusicBrainz -> Video Thumbnail
-    final_cover_url = None
-    musicbrainz_cover_data = None
-    
-    if itunes_data and itunes_data.get("url"):
-        final_cover_url = itunes_data["url"]
-    else:
-        # 尝试 MusicBrainz Cover Art Archive
-        mb_cover = get_musicbrainz_cover(query)
-        if mb_cover and mb_cover.get("type") == "binary":
-            musicbrainz_cover_data = mb_cover["data"]
-            print("🎨 使用 MusicBrainz/Cover Art Archive 封面")
-        elif video_cover_url:
-            final_cover_url = video_cover_url
-            print("🎨 使用视频缩略图作为封面")
-
+    # [V8.0] 集成统一封面管理器
+    try:
+        from scripts.unified_cover_manager import get_best_cover
+    except ImportError:
+        import sys
+        sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+        from unified_cover_manager import get_best_cover
+        
+    final_cover_path = get_best_cover(query)
     
     try:
         audio = MP3(str(final_mp3_path), ID3=ID3)
         if audio.tags is None: audio.add_tags()
         
-        from mutagen.id3 import TIT2, TPE1, TALB
-        if itunes_data:
-            audio.tags.add(TIT2(encoding=3, text=itunes_data["title"]))
-            audio.tags.add(TPE1(encoding=3, text=itunes_data["artist"]))
-            audio.tags.add(TALB(encoding=3, text=itunes_data["album"]))
+        from mutagen.id3 import TIT2, TPE1, TALB, APIC
+        
+        # 尝试从 iTunes 获取元数据（仅用于标签，不用于封面，封面由统一管理器负责）
+        metadata = get_itunes_metadata(query)
+        if metadata:
+            audio.tags.add(TIT2(encoding=3, text=metadata["title"]))
+            audio.tags.add(TPE1(encoding=3, text=metadata["artist"]))
+            audio.tags.add(TALB(encoding=3, text=metadata["album"]))
         else:
             parts = video_title.split(" - ", 1)
             if len(parts) == 2:
@@ -223,49 +212,23 @@ def download_and_search(query, filename=None, video_id=None):
             else:
                 audio.tags.add(TIT2(encoding=3, text=video_title))
 
-        # [V7.1] 支持 URL 或二进制封面数据
-        cover_embedded = False
-        if musicbrainz_cover_data:
-            # 直接使用 MusicBrainz 二进制数据
-            try:
-                img = Image.open(io.BytesIO(musicbrainz_cover_data))
-                w, h = img.size
-                if w != h:
-                    min_dim = min(w, h)
-                    left = (w - min_dim) / 2
-                    top = (h - min_dim) / 2
-                    img = img.crop((left, top, left + min_dim, top + min_dim))
-                
-                img_byte_arr = io.BytesIO()
-                img.save(img_byte_arr, format='JPEG', quality=95)
+        # 写入封面
+        if final_cover_path and os.path.exists(final_cover_path):
+            with open(final_cover_path, 'rb') as f:
                 audio.tags.delall("APIC")
-                audio.tags.add(APIC(encoding=3, mime='image/jpeg', type=3, desc='Cover', data=img_byte_arr.getvalue()))
-                cover_embedded = True
-            except Exception as e:
-                print(f"⚠️ MusicBrainz 封面处理失败: {e}")
-        
-        if not cover_embedded and final_cover_url:
-            resp = requests.get(final_cover_url, timeout=15)
-            img = Image.open(io.BytesIO(resp.content))
-            
-            w, h = img.size
-            if w != h:
-                min_dim = min(w, h)
-                left = (w - min_dim) / 2
-                top = (h - min_dim) / 2
-                img = img.crop((left, top, left + min_dim, top + min_dim))
-            
-            img_byte_arr = io.BytesIO()
-            img.save(img_byte_arr, format='JPEG', quality=95)
-            audio.tags.delall("APIC")
-            audio.tags.add(APIC(encoding=3, mime='image/jpeg', type=3, desc='Cover', data=img_byte_arr.getvalue()))
-            cover_embedded = True
-        
-        if not cover_embedded:
-            print("⚠️ 未能获取到任何封面")
-
+                audio.tags.add(APIC(
+                    encoding=3,
+                    mime='image/jpeg',
+                    type=3,
+                    desc='Cover',
+                    data=f.read()
+                ))
+            print(f"✅ 封面写入成功: {os.path.basename(final_cover_path)}")
+        else:
+            print("⚠️ 未能获取到任何封面，仅更新元数据。")
             
         audio.save(v2_version=3)
+        print("✅ ID3 标签(v2.3)更新成功！")
         print("✅ ID3 标签(v2.3)与高清封面写入成功！")
     except Exception as e:
         print(f"⚠️ 标签写入失败: {e}")

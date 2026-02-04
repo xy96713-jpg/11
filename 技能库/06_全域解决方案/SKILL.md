@@ -18,6 +18,9 @@ triggers:
 
 当接收到 `Solve` 指令时，Agent 必须严格执行以下 **“搜索三位一体”** 工作流：
 
+### 第零阶段：时间锚点对齐 (Phase 0: Temporal Lock)
+- **动作**：确认当前系统时间（2026）。所有搜索词必须针对 2026 年或 `after:2025-12-31`。
+
 ### 第一阶段：全域侦察 (Phase 1: The Search Triad)
 必须按顺序执行以下三次独立搜索，不可跳过：
 
@@ -34,7 +37,7 @@ triggers:
 
 #### 3. 📚 最佳实践扫描 (必选)
 *   **目标**：获取社区评价与理论基础。
-*   **执行动作**：Google Search `[关键词] best practices 2024` 或 `[关键词] vs alternatives`。
+*   **执行动作**：Google Search `[关键词] best practices 2026` 或 `[关键词] vs alternatives 2026`。
 
 ---
 

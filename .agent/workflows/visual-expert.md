@@ -6,11 +6,10 @@ description: 如何执行“视觉专家”工作流，构建具有电影质感�
 
 当用户需要任何形式的网页动画、UI 设计或 3D 可视化时，按照此流程激活“视觉与动态实验室”。
 
-## 步骤 1: 审美定位 (Aesthetic Definition)
-// turbo
-1. 引用 `d:\anti\技能库\05_极简审美与动画\05_aesthetic_core\AGENT_GUIDE.md`。
-2. 确定 **视觉风格**（如：极简白色、黑金奢华、赛博朋克）。
-3. 挑选 **调色盘**（使用 HSL，严禁硬渐变）。
+## 步骤 1: 审美校准与趋势摄取 (2026 Aesthetic Ingestion)
+- **[CRITICAL] 时间锁校准**：确认当前为 2026 年，使用 Skill 01 执行 `latest web aesthetics 2026` 扫描。
+- **获取灵感**：锁定当前统治级的 **Liquid Glass (流体玻璃)** 或 **Agentic UI** 趋势。
+- **调色盘定义**：强制使用 HSL 共振模型。
 
 ## 步骤 2: 界面建模 (UI Architecture)
 // turbo
@@ -25,13 +24,15 @@ description: 如何执行“视觉专家”工作流，构建具有电影质感�
 2. 注入 **微动效**（鼠标悬停反馈、滚动触发）。
 3. 根据需求注入 **Three.js/WebGL 背景** 或粒子系统。
 
-## 步骤 4: 浏览器验证 (Visual Quality Assurance)
-// turbo
-1. 使用 `browser_subagent` 运行代码。
-2. 检查：是否有黑屏、布局是否错版、动效是否流畅（帧率）。
-3. 截图并在响应中展示给用户。
+## 步骤 4: 专业双重自检 (Professional Dual-Audit)
+- **维度 A: 智脑审美审计 (Aesthetic Audit)**
+  - 根据 **AAAI 2026** 的回归评分标准（CG-IAA），对生成的画面进行“属性导向的批评”。
+  - 检查：对比度平衡、HSL 深度、Liquid Glass 的散射感。
+- **维度 B: 性能与交互自检 (Technical QA)**
+  - 使用 `browser_subagent` 录制 2026 巅峰验证录影。
+  - 检查：144Hz 适配性、Agentic UI 滑块联动、Tilt 特效的物理模拟精准度。
 
-## 步骤 5: 归档 (Gallery Archive)
-// turbo
-1. 将最终生成的 HTML 保存到 `d:\anti\技能库\05_极简审美与动画\gallery/`。
-2. 更新本地画廊。
+## 步骤 5: 专业交付 (Professional Delivery)
+- **[CRITICAL] 预览环境启动**: 禁止只给文件路径或代码。必须启动本地 Web Server（如 Python/Node）。
+- **强制动作**: 运行 `python -m http.server [port]`。
+- **交付物**: 提供 `http://localhost:[port]/index.html` 的可点击链接。这能确保在所有 IDE 环境下均直接跳转 Chrome 浏览器。

@@ -1470,7 +1470,7 @@ def get_energy_phase_target(current_position: float, total_tracks: int,
     if sorted_tracks is None:
         sorted_tracks = []
     
-    progress = (current_position + 1) / max(total_tracks, 1)  # 0..1，基于位置
+    progress = (current_position + 1) / max(total_tracks or 1, 1)  # 0..1，基于位置
     
     # 【V5优化】优先使用蓝图引擎进行阶段分配
     if BLUEPRINT_ENABLED:
@@ -1488,33 +1488,29 @@ def get_energy_phase_target(current_position: float, total_tracks: int,
         else:
             base_min, base_max, phase_name = (45, 70, "Cool-down")
     
-    # 分析已排序歌曲的实际能量趋势（用于验证和微调）
+    # 分析已排序歌曲的实际能量趋势
     if len(sorted_tracks) > 0:
-        recent_energies = [t.get('energy', 50) for t in sorted_tracks[-5:] if isinstance(t.get('energy'), (int, float))]
+        recent_energies = [t.get('energy') for t in sorted_tracks[-5:] if t.get('energy') is not None]
         avg_recent_energy = sum(recent_energies) / len(recent_energies) if recent_energies else 50
-        max_energy_reached = max([t.get('energy', 50) for t in sorted_tracks if isinstance(t.get('energy'), (int, float))], default=50)
-        recent_phases = [t.get('assigned_phase') for t in sorted_tracks[-3:] if t.get('assigned_phase')]
+        max_energy_reached = max([t.get('energy') for t in sorted_tracks if t.get('energy') is not None], default=50)
         
-        # 【修复】微调逻辑：确保不会破坏Peak和Cool-down阶段
-        # 如果已排序歌曲的平均能量明显高于当前阶段，提升阶段（但不破坏Cool-down）
-        if avg_recent_energy >= 65 and progress > 0.25 and progress < 0.90 and phase_name in ["Warm-up", "Build-up"]:
+        # 微调逻辑
+        if (avg_recent_energy or 0) >= 65 and progress > 0.25 and progress < 0.90 and phase_name in ["Warm-up", "Build-up"]:
             phase_name = "Peak"
             base_min, base_max = (65, 85)
-        elif avg_recent_energy >= 50 and progress > 0.1 and progress < 0.90 and phase_name == "Warm-up":
+        elif (avg_recent_energy or 0) >= 50 and progress > 0.1 and progress < 0.90 and phase_name == "Warm-up":
             phase_name = "Build-up"
             base_min, base_max = (50, 70)
         
-        # 如果最高能量已经达到Intense水平，可以进入Intense（但不破坏Cool-down）
-        if max_energy_reached >= 70 and progress > 0.5 and progress < 0.90 and phase_name in ["Warm-up", "Build-up", "Peak"]:
+        if (max_energy_reached or 0) >= 70 and progress > 0.5 and progress < 0.90 and phase_name in ["Warm-up", "Build-up", "Peak"]:
             if progress > 0.6:
-                phase_name = "Sustain"  # 使用Sustain而不是Intense，保持一致性
+                phase_name = "Sustain"
                 base_min, base_max = (70, 90)
             elif progress > 0.4:
                 phase_name = "Peak"
                 base_min, base_max = (65, 85)
         
-        # 【修复】确保最后10%必须是Cool-down（除非能量极高）
-        if progress >= 0.90 and max_energy_reached < 85:
+        if progress >= 0.90 and (max_energy_reached or 0) < 85:
             phase_name = "Cool-down"
             base_min, base_max = (45, 70)
     
@@ -1610,10 +1606,16 @@ def _calculate_candidate_score(track_data: tuple) -> tuple:
     if track.get('_used'):
         return (-999999, track, {})
     
-    next_bpm = track.get('bpm', 0)
-    bpm_diff = abs(current_bpm - next_bpm)
-    bpm_change = next_bpm - current_bpm  # 正数=上升，负数=下降
+    next_bpm = track.get('bpm') or 0
+    curr_bpm_safe = current_bpm or 0
     
+    if next_bpm > 0 and curr_bpm_safe > 0:
+        bpm_diff = abs(curr_bpm_safe - next_bpm)
+        bpm_change = next_bpm - curr_bpm_safe
+    else:
+        bpm_diff = 999.0
+        bpm_change = 0
+            
     score = 0
     metrics = {
         "bpm_diff": bpm_diff,
@@ -1643,7 +1645,9 @@ def _calculate_candidate_score(track_data: tuple) -> tuple:
     # ========== 【V7-PRO】微观维度注入：Mashup 兼容性评分 (30% 权重调节) ==========
     if MASHUP_ENABLED and current_track:
         # 计算微观兼容性得分 (11 维度)
-        mi_score, mi_details = MASHUP_INTELLIGENCE.calculate_mashup_score(current_track, track, mode='set_sorting')
+        mi_result = MASHUP_INTELLIGENCE.calculate_mashup_score(current_track, track, mode='set_sorting')
+        mi_score = mi_result[0] if mi_result and mi_result[0] is not None else 0.0
+        mi_details = mi_result[1] if mi_result and len(mi_result) > 1 else {}
         
         metrics["mi_score"] = mi_score
         metrics["mi_details"] = mi_details
@@ -1725,16 +1729,17 @@ def _calculate_candidate_score(track_data: tuple) -> tuple:
     swing_diff = abs(curr_swing - next_swing)
     
     swing_score_impact = 0
-    if swing_diff < 0.15:
-        # 律动高度一致（如都是 Straight 或 都是同档位 Swing）
-        swing_score_impact = 20
-        score += swing_score_impact
-    elif swing_diff > 0.4:
-        # 律动突变（如从 极度 Straight 突然跳到 极度 Swing）
-        swing_score_impact = -40
-        score += swing_score_impact
-        
-    add_trace("Groove Consistency", f"diff:{swing_diff:.2f}", swing_score_impact, f"Swing DNA 匹配度")
+    if swing_diff is not None:
+        if swing_diff < 0.15:
+            # 律动高度一致（如都是 Straight 或 都是同档位 Swing）
+            swing_score_impact = 20
+            score += swing_score_impact
+        elif swing_diff > 0.4:
+            # 律动突变（如从 极度 Straight 突然跳到 极度 Swing）
+            swing_score_impact = -40
+            score += swing_score_impact
+            
+        add_trace("Groove Consistency", f"diff:{swing_diff:.2f}", swing_score_impact, f"Swing DNA 匹配度")
 
     # ========== 第1优先级：BPM（最高100分，强化版） ==========
     # 专业DJ规则：BPM应该逐渐上升或保持，不能下降
@@ -1958,6 +1963,9 @@ def _calculate_candidate_score(track_data: tuple) -> tuple:
         energy_phase_score = max(0.0, 1.0 - (energy_target_diff / 40.0))
         # 【专业建议】权重从12%提升到20%（建议权重：bpm 0.40 | key 0.25 | energy_phase 0.20 | style 0.10）
         energy_phase_weight = 0.20
+        # Guard for energy_phase_score being None (though max returns float, defensive coding)
+        if energy_phase_score is None: energy_phase_score = 0.0
+        
         score += energy_phase_score * 100 * energy_phase_weight  # 转换为0-20分（从12分提升）
         metrics["energy_phase_score"] = energy_phase_score
         metrics["energy_phase_match"] = energy_target_diff <= 20  # 能量差≤20认为匹配
@@ -2298,7 +2306,8 @@ def _calculate_candidate_score(track_data: tuple) -> tuple:
             
             if is_compatible:
                 # 风格兼容，根据兼容度加分（0-27分，对应15%权重）
-                genre_bonus = compat_score * 0.27
+                compat_score_safe = compat_score if compat_score is not None else 0
+                genre_bonus = compat_score_safe * 0.27
                 score += genre_bonus
                 metrics["genre_compatible"] = True
                 metrics["genre_compat_score"] = compat_score
@@ -2785,8 +2794,13 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
             if track.get('_used'):
                 continue
             
-            next_bpm = track.get('bpm', 0)
-            bpm_diff = abs(current_bpm - next_bpm)
+            next_bpm = track.get('bpm') or 0
+            curr_bpm_safe = current_bpm or 0
+            
+            if next_bpm > 0 and curr_bpm_safe > 0:
+                bpm_diff = abs(curr_bpm_safe - next_bpm)
+            else:
+                bpm_diff = 999.0
             
             metrics = {
                 "bpm_diff": bpm_diff,
@@ -2809,21 +2823,19 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
             # ========== 【Boutique】精品模式多级评分机制 (代替硬性拦截) ==========
             boutique_penalty = 0
             if is_boutique:
-                # 调性兼容度预计算
-                k_score = get_key_compatibility_flexible(current_track.get('key', ''), track.get('key', ''))
-                energy_diff = abs(track.get('energy', 50) - current_track.get('energy', 50))
+                k_score = get_key_compatibility_flexible(current_track.get('key', ''), track.get('key', '')) or 0
+                track_energy = track.get('energy') or 50
+                curr_track_energy = current_track.get('energy') or 50
+                energy_diff = abs(track_energy - curr_track_energy)
                 
-                # Tier 1 (Gold): 极致平滑 (BPM diff <= 8, Key Score >= 90, Energy Jump <= 25)
-                # Tier 2 (Silver): 专业标准 (BPM diff <= 12, Key Score >= 75) -> 扣 150 分
-                # Tier 3 (Bronze): 超过专业标准 -> 扣 500 分
-                
-                if bpm_diff <= 8.0 and k_score >= 90 and energy_diff <= 25:
-                    boutique_penalty = 0 # 完美匹配，不扣分
-                elif bpm_diff <= 12.0 and k_score >= 75:
-                    boutique_penalty = 150 # 略有瑕疵，但在专业可接受范围内
+                # Tier 1 (Gold): 极致平滑
+                if (bpm_diff or 0) <= 8.0 and k_score >= 90 and energy_diff <= 25:
+                    boutique_penalty = 0 
+                elif (bpm_diff or 0) <= 12.0 and k_score >= 75:
+                    boutique_penalty = 150 
                 else:
-                    # 此时已经属于“较难接”的范畴，但在精品模式下作为最后的保底，不推荐使用
-                    boutique_penalty = 500 # 严重扣分，只有在别无选择时才会排入
+                    boutique_penalty = 500 
+
             
             score = -boutique_penalty
             if is_boutique and boutique_penalty > 0:
@@ -2832,14 +2844,14 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
             # 第1优先级：BPM（最高100分）
             # 【修复】DJ排法：BPM应该逐渐上升或保持，但允许有条件的下降（breakdown过渡）
             bpm_score = get_bpm_compatibility_flexible(current_bpm, next_bpm)
-            bpm_change = next_bpm - current_bpm  # 正数=上升，负数=下降
+            bpm_change = (next_bpm or 0) - (current_bpm or 0)
             
-            # 获取能量变化（用于判断是否是breakdown过渡）
-            current_energy = current_track.get('energy', 50)
-            next_energy = track.get('energy', 50)
-            energy_diff = next_energy - current_energy  # 正数=能量上升，负数=能量下降
+            # 获取能量变化
+            current_energy = current_track.get('energy') or 50
+            next_energy = track.get('energy') or 50
+            energy_diff = (next_energy) - (current_energy)
             
-            # 判断是否是breakdown过渡（BPM下降且能量也下降）
+            # 判断是否是breakdown过渡
             is_breakdown_transition = (bpm_change < 0 and energy_diff < -5)
             
             if bpm_diff <= 2:
@@ -2911,7 +2923,7 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
             key_score = get_key_compatibility_flexible(
                 current_track.get('key', ''),
                 track.get('key', '')
-            )
+            ) or 0
             metrics["key_score"] = key_score
             
             # 根据歌曲类型动态调整调性权重
@@ -2950,7 +2962,8 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
                         dist2 = 12 - dist1
                         key_distance = min(dist1, dist2)
                 except:
-                    pass
+                    key_distance = None
+
             
             # 调性权重：降低到0.2-0.3（从0.3-0.4降低），确保BPM优先
             if is_fast_switch:
@@ -3002,10 +3015,11 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
                         # 只是两首相同，不降低分数（调性兼容性优先）
                         pass
             
-            # 第2优先级：能量（根据阶段动态调整权重）
-            energy = track.get('energy', 50)
-            current_energy = current_track.get('energy', 50)
-            energy_diff = abs(energy - current_energy)
+            # 第2优先级：能量
+            energy = track.get('energy') or 50
+            current_energy = current_track.get('energy') or 50
+            energy_diff = abs((energy or 50) - (current_energy or 50))
+
             
             # 根据阶段动态调整能量权重
             # Build-up和Peak阶段更重视能量匹配（提升到40分）
@@ -3062,7 +3076,7 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
             # 如果能量回落后再提升（除了Cool-down），根据回落幅度扣分
             if sorted_tracks and len(sorted_tracks) > 0:
                 recent_phases = [t.get('assigned_phase') for t in sorted_tracks[-5:] if t.get('assigned_phase')]
-                recent_energies = [t.get('energy', 50) for t in sorted_tracks[-5:] if isinstance(t.get('energy'), (int, float))]
+                recent_energies = [t.get('energy') for t in sorted_tracks[-5:] if t.get('energy') is not None]
                 
                 if recent_phases and recent_energies:
                     last_phase = recent_phases[-1]
@@ -3205,7 +3219,10 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
                     score -= 12
                     metrics["phase_penalty"] = True
             
-            energy_diff = energy - current_track.get('energy', 50)
+            # 修复：防止energy_diff为None
+            energy_val = energy if energy is not None else 50
+            current_energy_val = current_track.get('energy') or 50
+            energy_diff = energy_val - current_energy_val
             if abs(energy_diff) <= 5:
                 score += 2
             elif -10 <= energy_diff <= 15:
@@ -3388,7 +3405,7 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
             # 条件2：BPM置信度≥0.85（提高从≥0.7到≥0.85，只对高置信度BPM进行对齐评分）
             # 条件3：beat_offset必须存在（避免使用默认值0导致误报）
             avg_bpm_conf_for_alignment = (curr_bpm_conf + next_bpm_conf) / 2.0 if (curr_bpm_conf is not None and next_bpm_conf is not None) else 0.0
-            is_bpm_conf_acceptable = avg_bpm_conf_for_alignment >= 0.85  # 提高阈值到0.85
+            is_bpm_conf_acceptable = avg_bpm_conf_for_alignment is not None and avg_bpm_conf_for_alignment >= 0.85  # 提高阈值到0.85
             
             # 【修复】检查downbeat_offset是否真实存在（不是默认值0）
             curr_downbeat_offset = current_track.get('downbeat_offset', None)
@@ -3396,23 +3413,24 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
             has_real_beat_offset = (curr_downbeat_offset is not None and curr_downbeat_offset != 0) or \
                                    (next_downbeat_offset is not None and next_downbeat_offset != 0)
             
-            if bpm_diff <= 3 and is_bpm_conf_acceptable and has_real_beat_offset:
+            if bpm_diff is not None and bpm_diff <= 3 and is_bpm_conf_acceptable and has_real_beat_offset:
                 # ========== 【修复3】降低 Drop/Beat 对齐权重（100分→10-20分） ==========
                 # 因为AI检测存在误差，不能让它拥有一票否决权
                 # 将权重从 100分 降低到 10-20分（乘以 0.15 系数）
                 # Beat对齐评分（权重10-20分，仅作为参考）
-                if beat_offset_diff <= 0.5:
-                    score += 20  # 完美对齐，最高奖励20分（原100分→20分）
-                elif beat_offset_diff <= 1.0:
-                    score += 15  # 优秀对齐，15分（原90分→15分）
-                elif beat_offset_diff <= 2.0:
-                    score += 10  # 可接受对齐，10分（原70分→10分）
-                elif beat_offset_diff <= 4.0:
-                    score += 5   # 轻微奖励，5分（原40分→5分）
-                elif beat_offset_diff <= 8.0:
-                    score -= 5   # 严重错位，轻微惩罚-5分（不影响主排序）
-                else:
-                    score -= 10  # 极严重错位，轻微惩罚-10分（不影响主排序）
+                if beat_offset_diff is not None:
+                    if beat_offset_diff <= 0.5:
+                        score += 20  # 完美对齐
+                    elif beat_offset_diff <= 1.0:
+                        score += 15  # 优秀对齐
+                    elif beat_offset_diff <= 2.0:
+                        score += 10  # 可接受对齐
+                    elif beat_offset_diff <= 4.0:
+                        score += 5   # 轻微奖励
+                    elif beat_offset_diff <= 8.0:
+                        score -= 5   # 严重错位
+                    else:
+                        score -= 10  # 极严重错位
             elif bpm_diff > 3:
                 # BPM差>3时，强拍对齐不可靠，不评分
                 pass
@@ -3434,12 +3452,14 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
             if bpm_diff <= 2 and is_bpm_conf_high and has_drop_info:
                 # ========== 【修复3】Drop对齐评分：降低权重（10-20分） ==========
                 # 只有在BPM差≤2、BPM置信度极高且Drop时间已知时才给予奖励
-                if drop_offset_diff <= 4.0:
-                    score += 20  # 完美Drop对齐，最高奖励20分（原100分→20分）
-                elif drop_offset_diff <= 8.0:
-                    score += 15  # 优秀Drop对齐，15分（原80分→15分）
-                elif drop_offset_diff <= 16.0:
-                    score += 10  # 可接受Drop对齐，10分（原60分→10分）
+                # Drop对齐评分
+                if drop_offset_diff is not None:
+                    if drop_offset_diff <= 4.0:
+                        score += 20  # 完美Drop对齐
+                    elif drop_offset_diff <= 8.0:
+                        score += 15  # 优秀Drop对齐
+                    elif drop_offset_diff <= 16.0:
+                        score += 10  # 可接受Drop对齐
                 # 偏移>16.0拍：不评分（提供参考信息，不惩罚）
             # BPM差>2、BPM置信度不够高或Drop时间未知：不评分（提供参考信息，让DJ手动调整）
 
@@ -3451,7 +3471,8 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
                     track
                 )
                 # 权重8%（混音兼容性作为综合参考）
-                score += mix_score * 0.08
+                mix_score_safe = mix_score if mix_score is not None else 0
+                score += mix_score_safe * 0.08
                 metrics["mix_compatibility_score"] = mix_score
                 metrics["mix_compatibility_metrics"] = mix_metrics
                 
@@ -3464,20 +3485,30 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
                 # 优雅降级：如果模块不存在或出错，不影响排序
                 pass
             
-            vocal_penalty, has_vocal_conflict = check_vocal_conflict(current_track, track)
+            vocal_result = check_vocal_conflict(current_track, track)
+            vocal_penalty = vocal_result[0] if vocal_result and vocal_result[0] is not None else 0
+            has_vocal_conflict = vocal_result[1] if vocal_result and len(vocal_result) > 1 else False
+            
             score += vocal_penalty
             metrics["vocal_conflict_penalty"] = vocal_penalty
             metrics["has_vocal_conflict"] = has_vocal_conflict
             
             # ========== 【V4.0 Ultra+ 专家级增强】审美与 Mashup 联动评分 ==========
             # 1. Aesthetic Curator: 审美匹配 (曲风/时代/情感) - 权重 15%
-            aesthetic_score, aesthetic_details = AESTHETIC_CURATOR.calculate_aesthetic_match(current_track, track)
+            # 1. Aesthetic Curator: 审美匹配 (曲风/时代/情感) - 权重 15%
+            ae_result = AESTHETIC_CURATOR.calculate_aesthetic_match(current_track, track)
+            aesthetic_score = ae_result[0] if ae_result and ae_result[0] is not None else 0.0
+            aesthetic_details = ae_result[1] if ae_result and len(ae_result) > 1 else {}
+            
             score += aesthetic_score * 0.15
             metrics["aesthetic_score"] = aesthetic_score
             metrics["aesthetic_details"] = aesthetic_details
             
             # 2. Mashup Intelligence: 跨界桥接与 Stems 兼容 - 权重 15%
-            mashup_score, mashup_details = MASHUP_INTELLIGENCE.calculate_mashup_score(current_track, track)
+            mi_result = MASHUP_INTELLIGENCE.calculate_mashup_score(current_track, track)
+            mashup_score = mi_result[0] if mi_result and mi_result[0] is not None else 0.0
+            mashup_details = mi_result[1] if mi_result and len(mi_result) > 1 else {}
+            
             score += mashup_score * 0.15
             metrics["mashup_score"] = mashup_score
             metrics["mashup_details"] = mashup_details
@@ -3538,13 +3569,11 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
             next_structure = track.get('structure', {})
             
             # 混音点计算（仅用于显示，不影响排序）
-            if curr_mix_out and next_mix_in and curr_duration > 0:
-                # 修正混音点间隔计算：
-                # curr_mix_out是当前歌曲的混出点（从开始计算的秒数）
-                # next_mix_in是下一首歌曲的混入点（从开始计算的秒数）
+            if (curr_mix_out is not None) and (next_mix_in is not None) and (curr_duration is not None and curr_duration > 0):
                 # 混音点间隔 = 下一首混入点 - (当前歌曲时长 - 当前混出点)
                 mix_gap = next_mix_in - (curr_duration - curr_mix_out)
                 metrics["mix_gap"] = mix_gap
+
                 
                 # 检查结构标签（仅用于标记警告，不影响排序）
                 curr_mix_out_in_verse = False
@@ -3554,17 +3583,19 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
                     verses = curr_structure.get('verse', [])
                     # 检查是否在Verse中间（仅标记，不扣分）
                     for verse in verses:
-                        if verse[0] < curr_mix_out < verse[1]:
+                        if (verse[0] is not None) and (verse[1] is not None) and (curr_mix_out is not None) and (verse[0] < curr_mix_out < verse[1]):
                             curr_mix_out_in_verse = True
                             break
+
                 
                 if next_structure:
                     verses = next_structure.get('verse', [])
                     # 检查是否在Verse中间（仅标记，不扣分）
                     for verse in verses:
-                        if verse[0] < next_mix_in < verse[1]:
+                        if (verse[0] is not None) and (verse[1] is not None) and (next_mix_in is not None) and (verse[0] < next_mix_in < verse[1]):
                             next_mix_in_in_verse = True
                             break
+
                 
                 # 标记警告（不影响排序）
                 if curr_mix_out_in_verse or next_mix_in_in_verse:
@@ -3622,8 +3653,9 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
                     },
                     'total_score': score,
                     'scores': {
-                        'bpm_score': metrics.get('bpm_diff', 0),
-                        'bpm_change': (track.get('bpm', 0) - current_bpm) if current_bpm > 0 else 0,
+                        'bpm_score': metrics.get('bpm_diff') or 0,
+                        'bpm_change': ((track.get('bpm') or 0) - (current_bpm or 0)) if (current_bpm or 0) > 0 else 0,
+
                         'key_score': metrics.get('key_score', 0),
                         'energy_score': metrics.get('energy_diff', 0),
                         'energy_phase': phase_name,
@@ -3725,7 +3757,8 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
         
         # 尾曲选择优化：如果是尾曲阶段，给尾曲候选额外加分
         remaining_count_check = len(remaining_tracks) - sum(1 for t in remaining_tracks if t.get('_used'))
-        is_closure_phase_check = (len(sorted_tracks) >= target_count - 2) or (remaining_count_check <= 2)
+        target_count_val = target_count if target_count is not None else 0
+        is_closure_phase_check = (len(sorted_tracks) >= target_count_val - 2) or (remaining_count_check <= 2)
         
         if is_closure_phase_check:
             for item in candidate_results:
@@ -3809,7 +3842,7 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
         # 即使没有接近的BPM选项，如果BPM跨度超过30，也不应该强制接受
         if not has_close_bpm_option:
             best_bpm_diff = best_result["metrics"].get("bpm_diff")
-            if best_bpm_diff is None or best_bpm_diff <= 30:
+            if best_bpm_diff is not None and best_bpm_diff <= 30:
                 best_result["metrics"]["force_accept"] = True
         
         best_track = best_result["track"]
@@ -3850,7 +3883,10 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
         
         if len(sorted_tracks) % 10 == 0:
             remaining = len(remaining_tracks) - 1
-            print(f"  排序进度: {len(sorted_tracks)}/{target_count} ({len(sorted_tracks)*100//target_count}%) | 剩余: {remaining}首 | 候选池: {len(candidate_tracks)}首")
+            if target_count is not None and target_count > 0:
+                print(f"  排序进度: {len(sorted_tracks)}/{target_count} ({len(sorted_tracks)*100//target_count}%) | 剩余: {remaining}首 | 候选池: {len(candidate_tracks)}首")
+            else:
+                print(f"  排序进度: {len(sorted_tracks)} (Target Unknown) | 剩余: {remaining}首 | 候选池: {len(candidate_tracks)}首")
         
         # 局部回溯机制：检查是否有更好的调性连接
         # 限制回溯深度为2，避免性能问题
@@ -3867,15 +3903,18 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
                 
                 # 获取回溯位置的歌曲
                 backtrack_track = sorted_tracks[-backtrack_idx]
-                backtrack_bpm = backtrack_track.get('bpm', 0)
+                backtrack_bpm = backtrack_track.get('bpm') or 0
+                
+                # 检查当前歌曲的BPM，确保比较时不是None
+                current_track_bpm = best_track.get('bpm') or 0
                 
                 # 在当前候选池中寻找与回溯位置调性兼容性更好的歌曲
                 for candidate in candidate_tracks:
                     if candidate.get('_used') or candidate == best_track:
                         continue
                     
-                    candidate_bpm = candidate.get('bpm', 0)
-                    candidate_bpm_diff = abs(backtrack_bpm - candidate_bpm)
+                    candidate_bpm = candidate.get('bpm') or 0
+                    candidate_bpm_diff = abs(backtrack_bpm - candidate_bpm) if backtrack_bpm is not None and candidate_bpm is not None else 999
                     
                     # 修复：改为软降权，不再硬过滤
                     # 如果BPM差太大，降权但不排除
@@ -3905,11 +3944,11 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
                         key_improvement = (candidate_key_score - key_score_val) * 0.5
                         backtrack_score += key_improvement
                         # BPM差稍大的惩罚
-                        if candidate_bpm_diff > bpm_diff:
+                        if bpm_diff is not None and candidate_bpm_diff > bpm_diff:
                             backtrack_score -= (candidate_bpm_diff - bpm_diff) * 2
                         
                         # 如果回溯后得分更好，记录
-                        if backtrack_score > best_backtrack_score + 5:  # 需要明显提升才回溯
+                        if bpm_diff is not None and backtrack_score > best_backtrack_score + 5:  # 需要明显提升才回溯
                             best_backtrack_score = backtrack_score
                             best_backtrack_track = candidate
                             # 尝试从 candidate_results 中找到该候选的 metrics
@@ -4251,10 +4290,11 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
                             key_score = get_key_compatibility_flexible(start_key, best_closure_track.get('key', ''))
                             if key_score >= 80:
                                 closure_reasons.append(f"调性回到起始调({start_key})")
-                        if current_bpm > 0 and best_closure_track.get('bpm', 0) > 0:
-                            bpm_diff = current_bpm - best_closure_track.get('bpm', 0)
+                        if (current_bpm or 0) > 0 and (best_closure_track.get('bpm') or 0) > 0:
+                            bpm_diff = (current_bpm or 0) - (best_closure_track.get('bpm') or 0)
                             if 0 <= bpm_diff <= 5:
                                 closure_reasons.append(f"BPM略低({bpm_diff:.1f})")
+
                         if closure_reasons:
                             progress_logger.log(f"尾曲候选：{best_closure_track.get('title', '未知')} ({' | '.join(closure_reasons)})", console=False)
     
@@ -4284,9 +4324,10 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
             
             for idx, track in enumerate(unused_remaining, start=len(sorted_tracks)):
                 track['_used'] = True
-                track_bpm = track.get('bpm', 0)
-                track_energy = track.get('energy', 50)
-                progress = idx / max(len(tracks), 1)
+                track_bpm = track.get('bpm') or 0
+                track_energy = track.get('energy') or 50
+                progress = idx / max(total_input or 1, 1)
+
                 
                 # 【优化1】强制基于实际能量值分配阶段（更严格的阈值）
                 if track_energy < 45:  # 从50降低到45
@@ -4370,9 +4411,11 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
         # 尝试将可插入的冲突歌曲插入到相近BPM位置
         for bpm_span, conflict_track in insertable_conflicts:
             conflict_bpm = conflict_track.get('bpm', 0)
+            conflict_bpm = conflict_track.get('bpm') or 0
             if conflict_bpm <= 0:
                 final_conflicts.append(conflict_track)
                 continue
+
             
             # 优化：找到BPM和调性都相近的位置
             best_insert_idx = len(sorted_tracks)
@@ -4380,9 +4423,10 @@ def enhanced_harmonic_sort(tracks: List[Dict], target_count: int = 40, progress_
             conflict_key = conflict_track.get('key', '')
             
             for idx, track in enumerate(sorted_tracks):
-                track_bpm = track.get('bpm', 0)
+                track_bpm = track.get('bpm') or 0
                 if track_bpm > 0:
                     bpm_diff = abs(conflict_bpm - track_bpm)
+
                     if bpm_diff < 20:
                         # 检查插入后不会造成新的大跨度
                         prev_bpm = sorted_tracks[idx - 1].get('bpm', 0) if idx > 0 else 0
@@ -5301,6 +5345,7 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
                                         is_boutique: bool = False,
                                         is_master: bool = False,
                                         is_live: bool = False,
+                                        preset: str = 'default',
                                         progress_logger=None):
     """创建增强版调性和谐Set
     
@@ -5508,7 +5553,7 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
         if playlist_id == "SEARCH_RESULT":
             pass
         # Handle Folder logic: If it's a folder, recursively get tracks from children
-        elif target_playlist.is_folder:
+        elif getattr(target_playlist, 'is_folder', False):
             print(f"检测到 '{target_playlist.name}' 是一个文件夹，正在读取其下所有子列表...")
             try:
                 # Recursive function to get all playlist IDs in folder
@@ -5517,7 +5562,7 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
                     for p in all_playlists:
                         if p.parent_id == str(parent_id):
                             children.append(p)
-                            if p.is_folder:
+                            if getattr(p, 'is_folder', False):
                                 children.extend(get_child_playlists(p.id, all_playlists))
                     return children
                 
@@ -6287,6 +6332,20 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
         min_s = split_cfg.get('min_songs', 20)
         max_s = split_cfg.get('max_songs', 60)
         
+        # [V35.3 Optimization] Preset Overrides
+        preset_map = {
+            'club': (60.0, 15, 45),
+            'radio': (45.0, 10, 30),
+            'warm_up': (90.0, 20, 50),
+            'extended': (120.0, 30, 80),
+            'default': (target_minutes, min_s, max_s)
+        }
+        if preset in preset_map:
+            target_minutes, min_s, max_s = preset_map[preset]
+            try:
+                print(f"[Preset] 应用预设 '{preset}': 目标 {target_minutes}分钟, {min_s}-{max_s}首")
+            except: pass
+        
         # 对每个BPM组进行排序，生成Set
         sets = []
         set_idx = 0
@@ -6373,11 +6432,11 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
                     if is_boutique:
                         # [V6.1.3] 双模优化：凡是开启了精品精选，全量分段自动进入"大块模式" (每段 25-35 首)
                         # 避免产生过多细碎的 Part
-                        target_s = max(25, min_s)
-                        target_d = max(90 * 60, target_minutes * 60)
+                        target_s = max(25, min_s or 0)
+                        target_d = max(90 * 60, (target_minutes or 0) * 60)
                     else:
-                        target_s = min_s
-                        target_d = target_minutes * 60
+                        target_s = min_s or 0
+                        target_d = (target_minutes or 0) * 60
                     
                     # 预估歌曲数量
                     est_songs = 0
@@ -6385,18 +6444,18 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
                     for k in range(current_ptr, len(global_sorted_tracks)):
                         temp_dur += global_sorted_tracks[k].get('duration', 180)
                         est_songs += 1
-                        if temp_dur >= target_d and est_songs >= min_s:
+                        if temp_dur >= target_d and est_songs >= (min_s or 0):
                             break
                     
                     # 如果剩余歌曲太少，直接打包
-                    if len(global_sorted_tracks) - (current_ptr + est_songs) < min_s // 2:
+                    if len(global_sorted_tracks) - (current_ptr + est_songs) < (min_s or 0) // 2:
                         est_songs = len(global_sorted_tracks) - current_ptr
                     
                     # 在 est_songs 附近寻找最佳切分点 (窗口 +/- 5)
                     pivot_idx = current_ptr + est_songs
                     if pivot_idx < len(global_sorted_tracks):
-                        window_start = max(current_ptr + min_s, pivot_idx - 5)
-                        window_end = min(len(global_sorted_tracks) - min_s // 2, pivot_idx + 5)
+                        window_start = max(current_ptr + (min_s or 25), pivot_idx - 5)
+                        window_end = min(len(global_sorted_tracks) - (min_s or 25) // 2, pivot_idx + 5)
                         
                         best_p = pivot_idx
                         max_p_score = -9999
@@ -6424,8 +6483,8 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
                     current_duration += track_dur
                     
                     is_last = (i == len(bpm_group) - 1)
-                    reached_duration = (current_duration >= target_minutes * 60)
-                    reached_max_songs = (len(current_sub_group) >= max_s)
+                    reached_duration = (current_duration >= (target_minutes or 0) * 60)
+                    reached_max_songs = (len(current_sub_group) >= (max_s or 999))
                     
                     # [PRO FIX] 如果开启了精品模式但没开Master，也要执行智能长度保护，避免生成极短Set
                     # 但是精品模式更推荐开启 is_master = True 来利用全局寻找 Pivot 的能力
@@ -6674,8 +6733,8 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
                                     
                                     # 2. 调性兼容性
                                     if bridge_key and curr_key and next_key:
-                                        key_score_curr = get_key_compatibility_flexible(curr_key, bridge_key)
-                                        key_score_next = get_key_compatibility_flexible(bridge_key, next_key)
+                                        key_score_curr = get_key_compatibility_flexible(curr_key, bridge_key) or 0
+                                        key_score_next = get_key_compatibility_flexible(bridge_key, next_key) or 0
                                         avg_key_score = (key_score_curr + key_score_next) / 2
                                         
                                         if avg_key_score >= 80:
@@ -6753,9 +6812,12 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
             
             for s_idx, s_tracks in enumerate(sets):
                 # [Dual Mode Fix] Set 0 (无论是 Boutique 还是 Live Part 1) 永远拥有豁免权
-                # 且如果是 Boutique，它不应该消耗后续 Live Set 的配额，所以不加入 seen_paths
+                # 且如果是 Boutique，它作为 Showcase 结束后，后续 Live Set 应该排除这些歌曲
                 if s_idx == 0:
                     final_unique_sets.append(s_tracks)
+                    for t in s_tracks:
+                        p = t.get('file_path')
+                        if p: global_seen_paths.add(p)
                     continue
 
                 unique_s_tracks = []
@@ -7475,16 +7537,16 @@ def calculate_transition_risk(current_track: dict, next_track: dict, mix_gap: Op
     next_key = next_track.get('key', '')
     key_score = get_key_compatibility_flexible(current_key, next_key)
     
-    if key_score < 50:
+    if key_score is not None and key_score < 50:
         key_clash = (50 - key_score) / 50.0
         risk_score += key_clash * 30
         risk_reasons.append("调性冲突")
     
-    current_energy = current_track.get('energy', 50)
-    next_energy = next_track.get('energy', 50)
+    current_energy = current_track.get('energy') or 50
+    next_energy = next_track.get('energy') or 50
     energy_diff = current_energy - next_energy
     
-    if energy_diff > 15:
+    if energy_diff is not None and energy_diff > 15:
         energy_drop = min(1.0, (energy_diff - 15) / 30.0)
         risk_score += energy_drop * 20
         risk_reasons.append("能量突降")
@@ -8053,11 +8115,18 @@ if __name__ == "__main__":
         elif args.query:
             target_name = f"search:{args.query}"
             
-        asyncio.run(create_enhanced_harmonic_sets(
-            playlist_name=target_name,
-            songs_per_set=effective_songs_per_set,
-            enable_bridge=args.bridge,
-            is_boutique=args.boutique,
-            is_master=args.master,
-            is_live=args.live
-        ))
+        try:
+            import traceback
+            asyncio.run(create_enhanced_harmonic_sets(
+                playlist_name=target_name,
+                songs_per_set=effective_songs_per_set,
+                enable_bridge=args.bridge,
+                is_boutique=args.boutique,
+                is_master=args.master,
+                is_live=args.live,
+                preset=args.preset
+            ))
+        except Exception:
+            with open('traceback.txt', 'w', encoding='utf-8') as f:
+                traceback.print_exc(file=f)
+            sys.exit(1)

@@ -1,0 +1,523 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;700&display=swap');
+
+:root {
+    --bg-void: #020202;
+    --bg-primary: #050505;
+    /* Liquid Glass Tokens */
+    --liquid-bg: rgba(255, 255, 255, 0.015);
+    --liquid-border: rgba(255, 255, 255, 0.05);
+    --liquid-shine: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 50%, rgba(255, 255, 255, 0.05) 100%);
+
+    --accent: #00f3ff;
+    /* 2026 Cyber Cyan */
+    --accent-glow: rgba(0, 243, 255, 0.3);
+
+    --transition-liquid: all 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+    --text-primary: #ffffff;
+    --text-secondary: rgba(255, 255, 255, 0.85);
+    /* 提高对比度 (2026 SOTA) */
+    --text-muted: rgba(255, 255, 255, 0.5);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-font-smoothing: antialiased;
+}
+
+body {
+    background-color: var(--bg-void);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    overflow-x: hidden;
+    line-height: 1.6;
+}
+
+/* --- Layout --- */
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+header {
+    margin-bottom: 4rem;
+    padding-top: 4rem;
+    position: relative;
+    z-index: 10;
+}
+
+.logo {
+    font-family: var(--font-display);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4em;
+    color: var(--accent);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.logo::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 10px var(--accent);
+}
+
+.title {
+    font-family: var(--font-display);
+    font-size: clamp(2.5rem, 8vw, 5rem);
+    font-weight: 700;
+    line-height: 0.95;
+    letter-spacing: -0.04em;
+    margin-bottom: 2rem;
+    background: linear-gradient(180deg, #fff 0%, #71717a 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* --- Categories --- */
+
+.category-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--glass-border);
+    padding-bottom: 1rem;
+}
+
+.category-title {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--text-primary);
+}
+
+.category-title i {
+    width: 20px;
+    height: 20px;
+}
+
+.category-count {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+.icon-finished {
+    color: #22c55e;
+}
+
+.icon-progress {
+    color: #3b82f6;
+}
+
+.icon-lab {
+    color: var(--accent);
+}
+
+/* --- Bento Grid --- */
+
+.bento-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-auto-rows: minmax(200px, auto);
+    gap: 1.5rem;
+    /* 默认可见，防止 JS 加载失败时白屏 */
+    opacity: 1;
+}
+
+.bento-card {
+    background: var(--liquid-bg);
+    border: 1px solid var(--liquid-border);
+    backdrop-filter: blur(40px) saturate(180%);
+    border-radius: 32px;
+    padding: 2.5rem;
+    position: relative;
+    overflow: hidden;
+    transition: var(--transition-liquid);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.card-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    /* 在内容之下的背景层 */
+    opacity: 0.6;
+    border-radius: 32px;
+}
+
+.bento-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--liquid-shine);
+    opacity: 0;
+    transition: opacity 0.6s ease;
+    pointer-events: none;
+    /* 关键修复：防止光效层拦截点击 (2026 SOTA Fix) */
+}
+
+.bento-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-12px) scale(1.02);
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: 0 40px 80px rgba(0, 0, 0, 0.8), 0 0 40px var(--accent-glow);
+}
+
+.bento-card:hover::before {
+    opacity: 1;
+}
+
+/* Category Specifics */
+.card-finished {
+    border-left: 2px solid #22c55e;
+}
+
+.card-progress {
+    border-left: 2px solid #3b82f6;
+}
+
+.card-lab {
+    border-left: 2px solid var(--accent);
+}
+
+/* Spans */
+.span-2 {
+    grid-column: span 2;
+}
+
+.span-3 {
+    grid-column: span 3;
+}
+
+.row-2 {
+    grid-row: span 2;
+}
+
+/* --- Components --- */
+
+.card-tag {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+    display: block;
+}
+
+.card-title {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.card-desc {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: 2rem;
+}
+
+.card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: auto;
+}
+
+/* --- Tweakpane & Viewer UI (2026 Enhanced) --- */
+
+#tp-container {
+    position: absolute;
+    right: 2rem;
+    top: 2rem;
+    width: 320px;
+    z-index: 1001;
+    filter: drop-shadow(0 20px 50px rgba(0, 243, 255, 0.2));
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--accent-glow);
+}
+
+.btn-close-viewer {
+    position: absolute;
+    bottom: 3rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 243, 255, 0.05);
+    border: 1px solid var(--accent-glow);
+    color: var(--accent);
+    padding: 1rem 2rem;
+    border-radius: 100px;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    z-index: 1001;
+    transition: var(--transition-liquid);
+    backdrop-filter: blur(10px);
+}
+
+.btn-close-viewer:hover {
+    background: var(--accent);
+    color: black;
+    box-shadow: 0 0 30px var(--accent-glow);
+}
+
+/* Pulse for progress */
+.pulse-indicator {
+    width: 6px;
+    height: 6px;
+    background: #3b82f6;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+    }
+
+    70% {
+        transform: scale(1);
+        box-shadow: 0 0 0 8px rgba(59, 130, 246, 0);
+    }
+
+    100% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+    }
+}
+
+/* Visual Experiments Section */
+.lab-section {
+    margin-top: 8rem;
+    border-top: 1px solid var(--glass-border);
+    padding-top: 4rem;
+}
+
+.lab-title {
+    font-family: var(--font-display);
+    font-size: 2rem;
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+/* Background Effects */
+/* --- 2026 Liquid Background Mesh --- */
+.bg-mesh {
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    overflow: hidden;
+    filter: blur(80px);
+    opacity: 0.4;
+}
+
+.orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(40px);
+}
+
+.orb-1 {
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, #00f3ff 0%, transparent 70%);
+    top: -100px;
+    left: -100px;
+}
+
+.orb-2 {
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, #7000ff 0%, transparent 70%);
+    bottom: 100px;
+    right: 100px;
+}
+
+.orb-3 {
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, #ff00c8 0%, transparent 70%);
+    top: 40%;
+    left: 30%;
+}
+
+.bg-glow {
+    position: fixed;
+    top: -10%;
+    right: -10%;
+    width: 50vw;
+    height: 50vw;
+    background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+    z-index: -1;
+    filter: blur(100px);
+}
+
+/* --- Viewer Overlay & Control Panel --- */
+
+#viewer-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--bg-void);
+    z-index: 1000;
+    transition: var(--transition-subtle);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.viewer-hidden {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transform: scale(1.1);
+}
+
+.viewer-content {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+}
+
+#viewer-canvas {
+    width: 100%;
+    height: 100%;
+    background: #050505;
+}
+
+.control-panel {
+    position: absolute;
+    right: 2rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 320px;
+    padding: 2rem;
+    border-radius: 24px;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    z-index: 1001;
+}
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.panel-header h4 {
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.slider-group {
+    margin-bottom: 1.5rem;
+}
+
+.slider-group label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+    font-family: var(--font-mono);
+}
+
+.slider {
+    width: 100%;
+    height: 4px;
+    background: var(--glass-border);
+    border-radius: 2px;
+    outline: none;
+    appearance: none;
+}
+
+.slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--accent);
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.btn-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: var(--transition-subtle);
+}
+
+.btn-close:hover {
+    color: white;
+    transform: rotate(90deg);
+}
+
+/* AI Brain Node Style */
+.ai-brain-node {
+    background: radial-gradient(circle at top right, rgba(255, 77, 0, 0.15), transparent 70%);
+}
+
+.active-preview {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .bento-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .span-3 {
+        grid-column: span 2;
+    }
+
+    .control-panel {
+        width: 100%;
+        position: fixed;
+        bottom: 0;
+        top: auto;
+        right: 0;
+        transform: none;
+        border-radius: 24px 24px 0 0;
+    }
+}
+
+@media (max-width: 640px) {
+    .bento-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .span-2,
+    .span-3 {
+        grid-column: span 1;
+    }
+}

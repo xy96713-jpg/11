@@ -126,7 +126,9 @@ SPATIAL_DNA = [
     # Spatial Attributes
     "Mono Center Focused", "Stereo Wide", "Super Wide Field", "Narrow Stereo", "Binaural Perception", 
     "Front-loaded Mix", "Deep Reverb Tail", "Short Slapback Delay", "Ping-pong Delay", 
-    "Immersive Surround Vibe", "Phasey Texture", "Holographic Depth"
+    "Immersive Surround Vibe", "Phasey Texture", "Holographic Depth",
+    # 2026 SOTA Spatial Hearing
+    "3D Source Separation", "Acoustic Pinpointing", "Edge-diffraction Modeling", "Proximal Proximity Effect"
 ]
 
 # --------------------------------------------------------------------------
@@ -136,7 +138,9 @@ PRODUCTION_DNA = [
     "50s Vintage Mono", "60s Psych-Rock production", "70s Analog Disco", "80s Gated Reverb Drums", 
     "80s Synthwave aesthetic", "90s Boom Bap MPC texture", "90s Eurodance", "Early 2000s Pop Gloss", 
     "Modern Trap High-end", "Hyperpop Glitch", "Bedroom Pop Lo-fi", "Organic World Music", 
-    "High-budget Studio Production", "DIY Garage Recording"
+    "High-budget Studio Production", "DIY Garage Recording",
+    # 2025/2026 Chronological DNA
+    "Hyper-Real AI Gloss", "Generative Lo-fi (2025)", "Post-Streaming Era Polish"
 ]
 
 # --------------------------------------------------------------------------
@@ -146,4 +150,13 @@ SYNTHESIS_DNA = [
     "Subtractive Synthesis", "FM Synthesis (Metallic/Glassy)", "Additive Synthesis", 
     "Wavetable Synthesis (Shifting)", "Granular Texture (Glitched)", "Physical Modeling (Acoustic-like)", 
     "Vector Synthesis", "Analog Drift", "Digital Precision", "Modulated Filters"
+]
+
+# --------------------------------------------------------------------------
+# 9. COGNITIVE & INTENT DNA (Strongest Brain V34 - 2026 SOTA)
+# --------------------------------------------------------------------------
+COGNITIVE_DNA = [
+    "Aggressive Intent", "Nostalgic Comfort", "Hype Catalyst", "Melancholic Drift", 
+    "Euphoric Peak", "Cerebral Complexity", "Minimalist Focus", "Chaos/Disturbance",
+    "Social-Media Hookiness", "Cinematic Narrative", "Dance-Floor Dominance"
 ]

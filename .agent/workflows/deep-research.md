@@ -10,9 +10,10 @@ description: 如何启用“深度研究 (Deep Research)”模式协助用户分
    - 确认云端 API 可用，无需关注本地 IP。
    - 检查 `d:\anti\ultra_browser_agent.py` 是否存在。
 
-2. **自主探索**：
+2. **自主探索与时空校准**：
+   - **[CRITICAL] 时间对齐**：确认当前真实年份（2026），并在搜索时启用时间过滤器（如 `after:2025-12-31`）。
    - 调用 `search_web` 获取第一批关键词结果。
-   - 使用 `browser_subagent` 进入高权重网站（如 GitHub, Arxiv, 行业媒体）进行深度阅读。
+   - 使用 `browser_subagent` 进入高权重网站进行深度阅读。
 
 3. **知识合成**：
    - 提取各方观点，建立矛盾校对。

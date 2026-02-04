@@ -1,0 +1,30 @@
+﻿Total playlists: 29
+ID: d7d0974a-1908-4de0-a1ff-3c861e08a1d8 | Name: K-Pop
+ID: 8bf4f6de-186d-492d-b461-3f321ab3179a | Name: J-Pop
+ID: 2c4af46e-d98b-4cee-bc8a-81cc4d6f5d33 | Name: Hip-Hop
+ID: 6fc9a0f3-9a12-421a-a1ae-ac305b8be114 | Name: 动漫音乐
+ID: f826cd78-e841-4c72-831f-645951de4ade | Name: 复古音乐
+ID: 0a50391b-8fe5-4d38-bca3-37c79009fd91 | Name: Acid Techno
+ID: d9f45cb3-3470-4383-83bb-ed91e9d715fd | Name: Afro音乐
+ID: 230404551 | Name: K-Pop
+ID: 200056398 | Name: J-Pop
+ID: 17599799 | Name: Hip-Hop
+ID: 226494199 | Name: House
+ID: 81400773 | Name: Acid Techno
+ID: 174941176 | Name: Afro 巴西 
+ID: 1347004264 | Name: 现代remix
+ID: 1508189056 | Name: Boiler Room
+ID: 302151232 | Name: kpop house
+ID: 4166083167 | Name: Boiler Room
+ID: 4166432089 | Name: 华语
+ID: 200000 | Name: CUE分析播放列表
+ID: 2223089898 | Name: 流行
+ID: 2666928527 | Name: 复古remix
+ID: 447277928 | Name: techno
+ID: 4149091801 | Name: 视频混音
+ID: 3692794471 | Name: R&B
+ID: 3555579445 | Name: 华语1
+ID: 396584812 | Name: 周杰伦
+ID: 110572751 | Name: NJ_V5_Session
+ID: 3383987894 | Name: searchNewJeans_Master_Unified_20260201_132226
+ID: 2383516135 | Name: Search_NewJeans_增强调和谐版_20260202_202312

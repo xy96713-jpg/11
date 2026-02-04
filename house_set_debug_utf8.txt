@@ -1,0 +1,46 @@
+﻿python : [15:04:37] pyrekordbox.db6.databas
+e:WARNING  - Rekordbox is running!
+所在位置 行:1 字符: 1
++ python d:/anti/skills/set_curation_expert
+/enhanced_harmonic_set_sorte ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified 
+   : ([15:04:37] pyre...box is running!:S  
+  tring) [], RemoteException
+    + FullyQualifiedErrorId : NativeComman 
+   dError
+ 
+2026-02-04 15:04:37.670 | INFO     | rekord
+box_mcp.database:connect:47 - Auto-detected
+ rekordbox database at: C:\Users\Administra
+tor\AppData\Roaming\Pioneer
+[15:04:37] pyrekordbox.db6.database:WARNING
+  - Rekordbox is running!
+2026-02-04 15:04:37.917 | INFO     | rekord
+box_mcp.database:connect:56 - Successfully 
+connected! Found 1076 tracks in database.
+Traceback (most recent call last):
+  File "d:\anti\skills\set_curation_expert\
+enhanced_harmonic_set_sorter.py", line 5511
+, in create_enhanced_harmonic_sets
+    elif target_playlist.is_folder:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'PlaylistObj' object has no
+ attribute 'is_folder'
+2026-02-04 15:04:38.046 | INFO     | rekord
+box_mcp.database:disconnect:90 - Database c
+onnection closed
+[OK] 已成功挂载 Mashup Intelligence V4 微观引擎
+[OK] 已成功挂载 Aesthetic Curator V4 审美引擎
+[OK] 已成功挂载 Narrative Planner V5 & Intelligence Researcher
+[Blueprinter] 已加载扩展蓝图: afro_house_specialist
+[Blueprinter] 已加载扩展蓝图: kpop_specialist
+[OK] 已成功挂载 Set Blueprinter V5 (from skills)
+警告: 无法加载进化配置，将使用默认权重: No module named 'evolution_config'
+[OK] 已加载 dj_rules.yaml 配置
+[Phase 8] 使用浮动分割: 25-40首/Set
+         目标时长: 90.0分钟
+正在连接到Rekordbox数据库...
+连接成功！
+错误: 'PlaylistObj' object has no attribute 'is_folder'

@@ -158,73 +158,138 @@ class SonicMatcher:
         bonus = 0.0
         reasons = []
         
+        # All tags lowercased for easier matching
+        tags1_set = set([t.lower() for t in tags1])
+        tags2_set = set([t.lower() for t in tags2])
+        
+        # --- [V33.7] GOD MODE UNIVERSAL AXIOMS ---
+        
+        # 1. Rhythmic Intelligence (The "Swing" Guard)
+        swing_tags = ["swing feel", "shuffle", "dilla swing", "laggy", "lazy"]
+        straight_tags = ["straight rhythm", "quantized", "robotic", "motorik", "sequenced"]
+        
+        has_swing1 = any(t in tags1_set for t in swing_tags)
+        has_swing2 = any(t in tags2_set for t in swing_tags)
+        has_straight1 = any(t in tags1_set for t in straight_tags)
+        has_straight2 = any(t in tags2_set for t in straight_tags)
+        
+        if (has_swing1 and has_straight2) or (has_swing2 and has_straight1):
+            bonus -= 20.0
+            reasons.append("⛔ Rhythm Clash: Swing vs Quantized (Trainwreck Risk)")
+        elif has_swing1 and has_swing2:
+            bonus += 15.0
+            reasons.append("🥁 Groove Lock: Swing Sync")
+
+        # 2. Spectral Engineering (The "Mud" Guard)
+        muddy_tags = ["muddy lows", "boomy", "boxy midrange"]
+        deep_tags = ["sub bass", "808", "deep bass", "wall of sound"]
+        hifi_tags = ["high fidelity", "audiophile grade", "crisp", "bright"]
+        lofi_tags = ["lo-fi", "bitcrushed", "cassette", "vinyl", "warm & round"]
+        
+        is_muddy1 = any(t in tags1_set for t in muddy_tags)
+        is_muddy2 = any(t in tags2_set for t in muddy_tags)
+        is_deep1 = any(t in tags1_set for t in deep_tags)
+        is_deep2 = any(t in tags2_set for t in deep_tags)
+        
+        # Clash: Muddy Lows (takes up space) x Sub Bass (needs space)
+        if (is_muddy1 and is_deep2) or (is_muddy2 and is_deep1):
+            bonus -= 25.0
+            reasons.append("⛔ Frequency Masking: Muddy Lows vs Sub Bass")
+            
+        # Texture check
+        is_hifi1 = any(t in tags1_set for t in hifi_tags)
+        is_hifi2 = any(t in tags2_set for t in hifi_tags)
+        is_lofi1 = any(t in tags1_set for t in lofi_tags)
+        is_lofi2 = any(t in tags2_set for t in lofi_tags)
+        
+        if (is_hifi1 and is_lofi2) or (is_hifi2 and is_lofi1):
+            bonus -= 5.0
+            reasons.append("⚠️ Texture Mismatch: Hi-Fi vs Lo-Fi")
+        elif is_lofi1 and is_lofi2:
+            bonus += 10.0
+            reasons.append("📼 Texture Lock: Lo-Fi/Vintage Vibe")
+
+        # 3. Modal Harmony (The "Mood" Lock)
+        modes = ["phrygian", "dorian", "lydian", "mixolydian"]
+        for m in modes:
+            m_tag = f"{m} mode"
+            # Flexible matching
+            t1_has = any(m in t for t in tags1_set)
+            t2_has = any(m in t for t in tags2_set)
+            if t1_has and t2_has:
+                bonus += 20.0
+                reasons.append(f"🎼 Modal Lock: {m.capitalize()} Synergy")
+                break
+        
+        # Dorian x Minor check
+        is_dorian1 = any("dorian" in t for t in tags1_set)
+        is_dorian2 = any("dorian" in t for t in tags2_set)
+        is_minor1 = any("minor" in t for t in tags1_set) or "minor" in track1_data.get('analysis', {}).get('key', '').lower()
+        is_minor2 = any("minor" in t for t in tags2_set) or "minor" in track2_data.get('analysis', {}).get('key', '').lower()
+        
+        if (is_dorian1 and is_minor2) or (is_dorian2 and is_minor1):
+            # Only if not already matched exactly above
+            if "Modal Lock" not in str(reasons):
+                bonus += 10.0
+                reasons.append("🎼 Soulful Connection: Dorian x Minor")
+
+        # 4. Vocal Texture (The "Energy" Balance)
+        soft_tags = ["whispering", "breathy", "soft", "gentle", "spoken word"]
+        hard_tags = ["aggressive", "screaming", "growling", "distorted vocals", "shouting", "belting"]
+        
+        is_soft1 = any(t in tags1_set for t in soft_tags)
+        is_soft2 = any(t in tags2_set for t in soft_tags)
+        is_hard1 = any(t in tags1_set for t in hard_tags)
+        is_hard2 = any(t in tags2_set for t in hard_tags)
+        
+        if (is_soft1 and is_hard2) or (is_soft2 and is_hard1):
+            bonus -= 20.0
+            reasons.append("⛔ Energy Overpower: Whispering vs Screaming")
+
+        # 5. [V34.1] COGNITIVE SYNERGY (2026 SOTA Intent Alignment)
+        cognitive_tags1 = set([t.lower() for t in track1_data.get('analysis', {}).get('cognitive_dna', [])])
+        cognitive_tags2 = set([t.lower() for t in track2_data.get('analysis', {}).get('cognitive_dna', [])])
+        
+        # Exact Intent Match (High Synergistic Bonus)
+        shared_intents = cognitive_tags1.intersection(cognitive_tags2)
+        if shared_intents:
+            bonus += 30.0
+            reasons.append(f"🧠 Cognitive Sync: Shared Intent ({', '.join(list(shared_intents)[:2])})")
+        
+        # 6. [V34.1] SPATIAL SEPARATION SYNERGY
+        spatial_tags1 = set([t.lower() for t in track1_data.get('analysis', {}).get('spatial', [])])
+        spatial_tags2 = set([t.lower() for t in track2_data.get('analysis', {}).get('spatial', [])])
+        
+        has_3d_1 = "3d source separation" in spatial_tags1 or "acoustic pinpointing" in spatial_tags1
+        has_3d_2 = "3d source separation" in spatial_tags2 or "acoustic pinpointing" in spatial_tags2
+        
+        if has_3d_1 and has_3d_2:
+            bonus += 15.0
+            reasons.append("🌌 Spatial Clarity: 3D Separation Match (Low Masking Risk)")
+
+        # --- LEGACY RULES (Retained & Refined) ---
+        
         # Rule 1: Pluck Synergy (Oriental <-> Pizzicato)
-        # Expanded for YAMNet Tags: 'Zither', 'Plucked string instrument'
-        yamnet_pluck_tags = ["Zither", "Plucked string instrument", "Koto", "Shamisen"]
+        yamnet_pluck_tags = ["zither", "plucked string instrument", "koto", "shamisen", "oriental_pluck", "pizzicato_pluck"]
+        t1_has_pluck = any(t in yamnet_pluck_tags for t in tags1_set)
+        t2_has_pluck = any(t in yamnet_pluck_tags for t in tags2_set)
         
-        # [V35.6 Fix] Strict Cross-Track Matching
-        t1_has_oriental = any(t == "Oriental_Pluck" or t in yamnet_pluck_tags for t in tags1)
-        t2_has_oriental = any(t == "Oriental_Pluck" or t in yamnet_pluck_tags for t in tags2)
-        
-        t1_has_pizzicato = any(t == "Pizzicato_Pluck" or t in yamnet_pluck_tags for t in tags1)
-        t2_has_pizzicato = any(t == "Pizzicato_Pluck" or t in yamnet_pluck_tags for t in tags2)
-        
-        # Synergy is when ONE has Oriental and the OTHER has Pizzicato
-        synergy = (t1_has_oriental and t2_has_pizzicato) or (t1_has_pizzicato and t2_has_oriental)
-        
-        if synergy:
-            # [V35.1] Vibe Guard: Use arousal_proxy if available in track analysis
-            a1 = track1_data.get('analysis', {}).get('arousal_proxy') or track1_data.get('analysis', {}).get('arousal_window_mean', 0.5)
-            a2 = track2_data.get('analysis', {}).get('arousal_proxy') or track2_data.get('analysis', {}).get('arousal_window_mean', 0.5)
-            a_diff = abs(a1 - a2)
-            
-            # [V35.6] Refined Vibe Check (Ballad vs Urban)
-            g1, g2 = str(tags1).lower(), str(tags2).lower()
-            
-            is_urban1 = any(x in g1 for x in ["rap", "hip hop", "electronic", "trap", "urban", "r&b", "banger"])
-            is_urban2 = any(x in g2 for x in ["rap", "hip hop", "electronic", "trap", "urban", "r&b", "banger"])
-            
-            # A ballad is something that sounds acoustic/independent AND DOES NOT have rap/banger energy
-            # [V35.6] Exempt Pop/Dance/K-Pop from ballad classification
-            is_energy_pop = any(x in g1 for x in ["pop", "k-pop", "dance", "remix", "techno", "club"])
-            is_ballad1 = any(x in g1 for x in ["independent music", "folk", "acoustic", "singing", "ballad"]) and not (is_urban1 or is_energy_pop)
-            
-            is_energy_pop2 = any(x in g2 for x in ["pop", "k-pop", "dance", "remix", "techno", "club"])
-            is_ballad2 = any(x in g2 for x in ["independent music", "folk", "acoustic", "singing", "ballad"]) and not (is_urban2 or is_energy_pop2)
-            
-            # Find the specific tags that triggered the match
-            match_tags1 = [t for t in tags1 if t == "Oriental_Pluck" or t in yamnet_pluck_tags or t == "Pizzicato_Pluck"]
-            match_tags2 = [t for t in tags2 if t == "Pizzicato_Pluck" or t in yamnet_pluck_tags or t == "Oriental_Pluck"]
-            
-            # [V35.6] Exclusive Vibe Check: Ballad vs Urban is an automatic penalty
-            if (is_ballad1 and is_urban2) or (is_ballad2 and is_urban1):
-                bonus -= 15.0 # Anti-synergy penalty
-                reasons.append(f"⛔ Aesthetic Clash: Ballad/Urban Dissonance")
-            elif a_diff > 0.3:
-                bonus += 2.0 
-                reasons.append(f"🧬 Suppressed Match: Vibe Mismatch ({a_diff:.2f})")
-            else:
-                bonus += 30.0
-                reasons.append(f"🧬 Sonic Cousin: {match_tags1} vs {match_tags2} (Neural Confirmed)")
-            
+        if t1_has_pluck and t2_has_pluck:
+             bonus += 15.0
+             reasons.append("🧬 Sonic Cousin: Pluck/Oriental Synergy")
+
         # Rule 2: Flow Mirror (Staccato x Staccato)
-        if "Staccato_Rap" in tags1 and "Staccato_Rap" in tags2:
+        if "staccato_rap" in tags1_set and "staccato_rap" in tags2_set:
             bonus += 15.0
             reasons.append("⚡ Flow Mirror: Staccato Rap Lock")
             
         # Rule 3: Kung Fu x Gangsta (Dragon Fist Special)
-        # Nu-Metal/Kung Fu fits aggressively with West Coast Gangsta Rap
-        has_kungfu = any(t in ["Kung_Fu_Vibe", "Oriental_Percussion"] for t in tags1 + tags2)
-        has_gangsta = any(t in ["Gangsta_Flow", "West_Coast"] for t in tags1 + tags2)
+        has_kungfu = any(t in ["kung_fu_vibe", "oriental_percussion"] for t in tags1_set | tags2_set)
+        has_gangsta = any(t in ["gangsta_flow", "west_coast"] for t in tags1_set | tags2_set)
         
         if has_kungfu and has_gangsta:
             bonus += 25.0
             reasons.append("🥋 Kung Fu Hustle: Oriental Percussion x Gangsta Rap")
-            
-        # Rule 4: Aggressive Energy Lock
-        if "Aggressive_Flow" in tags1 and ("Aggressive_Flow" in tags2 or "Nu_Metal_Rap" in tags2):
-            bonus += 15.0
-            reasons.append("🔥 High Voltage: Aggressive Flow Sync")
             
         return bonus, reasons
 
