@@ -8,13 +8,13 @@
 
 ---
 
-## ⚡ 协议 0: 上下文继承 (Context Inheritance)
-本技能是 **执行层 (Executor)**。在启动任何视觉构建任务前，必须显式继承以下 **决策层 (Thinking)** 的指导协议：
+## ⚡ 协议 0: 内核继承 (Kernel Inheritance)
+本技能已进化为 **三位一体集成模组**。在启动任何任务前，必须调用以下内置“智脑”模块：
 
-1.  **Product Vision**: 必须阅读 **Skill 00 (God PM Core)** 的 `技能库/00_system_governance/README.md`。如果 PM 说“用户体验优先”，你不能为了炫技而做掉帧的特效。
-2.  **Arch Logic**: 必须阅读 **Skill 09 (Computational Architect)** 的 `技能库/09_computational_architect/SKILL.md`。任何复杂的物理模拟 (Physics) 或数学计算必须经过白盒审计，拒绝 Magic Numbers。
+1.  **Product Vision (Inner PM)**: 必须阅读并执行 `core/pm_governance/README.md` 中的决策宪法。
+2.  **Arch Logic (Inner Arch)**: 必须阅读并执行 `core/computational_arch/SKILL.md` 中的架构审计规则。
 
-> **规则**: Skill 05 只负责 **How to Build**，而 Skill 00/09 负责 **What & Why**。
+> **规则**: 视觉实验室不再只是“画图工具”，它是受 PM 战略和架构审计闭环控制的 **Agentic Factory**。
 
 ---
 

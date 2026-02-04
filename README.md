@@ -1,4 +1,4 @@
-# 🤖 Antigravity 智能体技能中心 (Antigravity Skills - V9.0 Final)
+# 🤖 Antigravity 智能体技能中心 (Antigravity Skills - V10.0 Consolidated)
 
 您的专属智能体“大脑”仓库。这里存放着所有经过优化的 AI 技能模块。
 
@@ -6,7 +6,6 @@
 
 | ID | 技能名称 | 📂 目录名 | 🔴 激活指令 (Triggers) |
 | :--- | :--- | :--- | :--- |
-| **00** | **👑 GOD PM CORE (System Governance)** | `00_system_governance` | `/pm-mode`<br>`Solve-PM` |
 | **01** | **🧠 深度研究 (Deep Research & NotebookLM Aligned)** | `01_深度研究` | (自动激活/无需指令) |
 | **02** | **🎵 音乐下载专家 V8.8 (Music Download Expert)** | `02_音乐下载` | (自动激活/无需指令) |
 | **03** | **🎧 DJ 智能助手 (DJ Intelligence / Master DJ V7.5 Pro)** | `03_DJ智能助手` | (自动激活/无需指令) |
@@ -15,21 +14,20 @@
 | **06** | **🧠 全域解决方案架构师 (Universal Solutions Architect)** | `06_全域解决方案` | "solve"<br>""solve""<br>"给个方案" |
 | **07** | **📉 短视频智能分析 (Short Video Intelligence)** | `07_短视频分析` | (自动激活/无需指令) |
 | **08** | **🎚️ 高级混音大师 (Mashup Intelligence)** | `08_高级混音` | (自动激活/无需指令) |
-| **09** | **📐 算法与计算几何专家 (Computational Architect)** | `09_computational_architect` | `/computational`<br>`/math-fix` |
 
+> [!IMPORTANT]
+> **原 Skill 00 (PM Core) 与 Skill 09 (Arch) 已深度集成至 Skill 05 (视觉实验室) 内核中，作为其“规则引擎”与“审计专家”运行。**
 
 ## 📦 技能模块 (点击进入查看详情)
 
-*   **[👑 GOD PM CORE (Meta-Protocol)](技能库/00_system_governance)** —— **统治级协议**。定义了 PM 的决策逻辑与系统治理宪法。
 *   **[🧠 深度研究 (NotebookLM Aligned)](技能库/01_深度研究)** —— **核心推荐**。集成全网知识抓取、长文档摘要与实证问答。
 *   **[🎵 音乐下载 (Smart Waterfall)](技能库/02_音乐下载)** —— **New (V8.8)**。全域瀑布流搜索，自动补全封面与标签。
 *   **[🎧 DJ 助手 (Master DJ V7.5 Pro)](技能库/03_DJ智能助手)** —— **核心推荐**。防撞车混音排布与调性分析。
 *   **[🛠️ 系统工具](技能库/04_系统工具)** —— Chrome AI 激活器、环境伪装工具。
-*   **[🎨 视觉与动态实验室 (Visual Lab)](技能库/05_极简审美与动画)** —— **超级模组**。整合了极简审美、高级 UI 与 3D 可视化能力。
+*   **[🎨 视觉与动态实验室 (Visual Lab)](技能库/05_极简审美与动画)** —— **核心全能模组**。内置了 **PM 决策宪法** 与 **计算几何审计专家**。所有视觉任务均自动执行“三位一体”规则审计。
 *   **[⚡ 全域解决方案](技能库/06_全域解决方案)** —— 搜索三位一体架构 (MCP + GitHub)。
 *   **[📉 短视频分析](技能库/07_短视频分析)** —— **New**。抖音/TikTok 笔记与关键帧提取。
 *   **[🎚️ 高级混音 (Mashup)](技能库/08_高级混音)** —— 自动化 Bootleg 制作工具。
-*   **[📐 算法与计算几何专家](技能库/09_computational_architect)** —— **New (V9.0)**。数学物理推导与白盒代码审计专家。
 
 ---
 
