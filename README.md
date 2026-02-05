@@ -1,20 +1,16 @@
-# 🤖 Antigravity 智能体技能中心 (Antigravity Skills - V10.1 Consolidated)
+# 🤖 Antigravity 智能体技能中心 (Antigravity Skills - V10.5 Final Consolidated)
 
 您的专属智能体“大脑”仓库。这里存放着所有经过优化的 AI 技能模块。
 
 ## ⚡ 核心能力：全技能军火库 (Skill Arsenal)
 
-| ID | 技能名称 | 📂 目录名 | 🔴 激活指令 (Triggers) |
+| 簇 | 技能名称 | 包含原 ID | 🔴 激活指令 |
 | :--- | :--- | :--- | :--- |
-| **01** | **🧠 深度研究 (Deep Research & NotebookLM Aligned)** | `01_深度研究` | (自动激活/无需指令) |
-| **02** | **🎵 音乐下载专家 V8.8 (Music Download Expert)** | `02_音乐下载` | (自动激活/无需指令) |
-| **03** | **🎧 DJ 智能助手 (DJ Intelligence / Master DJ V7.5 Pro)** | `03_DJ智能助手` | (自动激活/无需指令) |
-| **04** | **🛠️ 系统工具 (System Tools / Environment Enabler)** | `04_系统工具` | (自动激活/无需指令) |
-| **05** | **🎨 视觉与动态实验室 (Visual & Dynamic Lab)** | `05_极简审美与动画` | (自动激活/无需指令) |
-| **06** | **🧠 全域解决方案架构师 (Universal Solutions Architect)** | `06_全域解决方案` | "solve"<br>""solve""<br>"给个方案" |
-| **07** | **📉 短视频智能分析 (Short Video Intelligence)** | `07_短视频分析` | (自动激活/无需指令) |
-| **08** | **🎚️ 高级混音大师 (Mashup Intelligence)** | `08_高级混音` | (自动激活/无需指令) |
-| **10** | **🎬 字幕生成专家 (Subtitle & Lyricist Pro)** | `10_字幕生成专家` | (自动激活/无需指令) |
+| **👑 智脑** | **视觉与动态实验室 (Mastermind - Trinity Edition)** | `00, 05, 09` | `/visual`, `/pm` |
+| **🧠 研究** | **深度研究与全域解决方案 (Intelligence Search)** | `01, 06` | `/research`, `solve` |
+| **🎧 音乐** | **DJ 智能与高级混音 (DJ \u0026 Mashup Master)** | `03, 08` | (自动激活) |
+| **🎬 媒体** | **短视频分析与字幕生成 (Media Expert)** | `07, 10` | `/srt`, `/video` |
+| **🛠️ 工具** | **系统工具与音乐下载 (Infrastructure)** | `02, 04` | (自动激活) |
 
 > [!IMPORTANT]
 > **原 Skill 00 (PM Core) 与 Skill 09 (Arch) 已深度集成至 Skill 05 (视觉实验室) 内核中，作为其“规则引擎”与“审计专家”运行。**
