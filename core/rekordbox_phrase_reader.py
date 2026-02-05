@@ -113,7 +113,9 @@ class RekordboxPhraseReader:
             
             for tag in anlz.tags:
                 if tag.type == "PSSI":
-                    beat_duration = 60.0 / bpm if bpm > 0 else 0.5
+                    # 【V7.1 Fix】防止 bpm 为 None 导致的比较错误
+                    safe_bpm = bpm if bpm is not None and bpm > 0 else 120.0
+                    beat_duration = 60.0 / safe_bpm
                     
                     for entry in tag.content.entries:
                         beat = entry.beat
@@ -201,7 +203,7 @@ class RekordboxPhraseReader:
                     for entry in tag.content.entries:
                         beats.append({
                             "beat": entry.beat,
-                            "time": entry.time / 1000.0 if entry.time > 100 else entry.time,
+                            "time": (entry.time / 1000.0 if entry.time > 100 else entry.time) if entry.time is not None else 0.0,
                             "bpm": entry.tempo / 100.0 if entry.tempo else 0
                         })
                     return beats

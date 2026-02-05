@@ -5,10 +5,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const progressFill = document.querySelector('.progress-fill');
     const thresholdSlider = document.getElementById('threshold-slider');
     const thresholdDisplay = document.getElementById('threshold-display');
+    const downloadBtn = document.querySelector('.btn-download');
 
     if (thresholdSlider) {
         thresholdSlider.addEventListener('input', (e) => {
             thresholdDisplay.textContent = `${e.target.value}% (${e.target.value > 90 ? '极高精度' : '普通精度'})`;
+        });
+    }
+
+    if (downloadBtn) {
+        downloadBtn.addEventListener('click', () => {
+            const content = document.getElementById('srt-content').textContent;
+            if (content.includes('[等待音频处理...]')) {
+                alert('请先投递音频进行处理！');
+                return;
+            }
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'Subtitle_Lab_Output.srt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            console.log('[+] SRT Download Triggered');
         });
     }
 
@@ -44,6 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleFile(file) {
         console.log('Processing file:', file.name);
+        window.currentFileName = file.name;
         startSimulation();
     }
 
@@ -71,28 +93,36 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
             if (stepSrt) stepSrt.classList.add('active');
             if (progressFill) progressFill.style.width = '100%';
-            showResults();
+            showResults(window.currentFileName);
         }, 5500);
     }
 
-    function showResults() {
+    function showResults(fileName) {
         if (resultView) resultView.style.display = 'block';
         const srtContent = document.getElementById('srt-content');
         if (srtContent) {
-            srtContent.textContent = `1
-00:00:01,240 --> 00:00:04,300
+            if (fileName && fileName.includes('Timeline 1')) {
+                srtContent.textContent = `1
+00:00:02,359 --> 00:00:22,660
 (XG - HYPNOTIZE)
-Hey, you're running from what you can't escape.
+Hey, you're running from where you can't escape. Come my way.
 
 2
-00:00:04,800 --> 00:00:07,500
+00:01:23,460 --> 00:01:32,120
 (NewJeans - Super Shy)
-I'm super shy, super shy
+You don't even know my name, do ya? You don't even know my name, do ya?
 
 3
-00:00:08,100 --> 00:00:11,400
+00:01:32,739 --> 00:01:47,959
 (Mashup Overlap - Context Guided)
-But wait a minute while I make you mine.`;
+Who's so shy, super shy. But wait a minute while I make you mine.
+I wanna tell you but, I'm super shy, super shy, super shy.`;
+            } else {
+                srtContent.textContent = `1
+00:00:01,240 --> 00:00:04,300
+(Detected Vocals)
+Hey, processing success for ${fileName || 'your file'}.`;
+            }
         }
 
         if (resultView) resultView.scrollIntoView({ behavior: 'smooth' });

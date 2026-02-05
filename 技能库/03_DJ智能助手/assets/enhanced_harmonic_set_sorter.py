@@ -33,6 +33,9 @@ for parent in [BASE_DIR] + list(BASE_DIR.parents):
 
 # 添加项目根目录到 sys.path，以便支持 from sub_package import ...
 sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(PROJECT_ROOT / "legacy_restore")) # 支持旧版技能库挂载
+sys.path.insert(0, str(PROJECT_ROOT / "config"))         # 支持配置文件挂载
+sys.path.insert(0, str(BASE_DIR))                        # 确保本地 assets 目录优先
 
 # 添加 rekordbox_mcp 特殊路径支持
 sys.path.insert(0, str(PROJECT_ROOT / "core" / "rekordbox-mcp"))
@@ -80,10 +83,16 @@ except ImportError as e:
 try:
     sys.path.insert(0, r"d:\anti\core")
     from strict_bpm_multi_set_sorter import deep_analyze_track
+    try:
+        from v35_adapter import get_v35_enhanced_data
+    except ImportError:
+        def get_v35_enhanced_data(analysis): return {"energy": analysis.get('energy', 50), "is_v35": False}
 except Exception as e:
     print(f"Warning: 无法导入深度分析模块: {e}")
     def deep_analyze_track(file_path, db_bpm=None, **kwargs):
         return None
+    def get_v35_enhanced_data(analysis): return {"energy": 50, "is_v35": False}
+
 
 # 导入质量监控
 try:
@@ -4775,14 +4784,23 @@ def generate_transition_advice(curr_track: Dict, next_track: Dict, transition_id
             advice.append(f"    📏 乐句对齐 (Phrasing): ⚠️ 进歌点非标准乐句起始，建议手动对齐 Beatgrid")
 
     # 2. 频段平衡与音色审计 (Timbre & EQ Balance)
-    curr_low = curr_track.get('tonal_balance_low', 0.5)
-    next_low = next_track.get('tonal_balance_low', 0.5)
+    curr_low = curr_track.get('tonal_balance_low')
+    next_low = next_track.get('tonal_balance_low')
+    
+    # 【V6.1 Fix】防止 NoneType 计算错误
+    curr_low = curr_low if curr_low is not None else 0.5
+    next_low = next_low if next_low is not None else 0.5
+    
     if abs(curr_low - next_low) > 0.3:
         advice.append(f"    🎚️ 频段审计 (EQ): {'下一首低频较重，建议提前 Cut Bass' if next_low > curr_low else '上一首低频较厚，建议使用 Bass Swap 技巧'}")
         
     # 3. 人声冲突 V2 保护 (Vocal Protection V2)
-    curr_vocal = curr_track.get('vocal_ratio', 0.5)
-    next_vocal = next_track.get('vocal_ratio', 0.5)
+    curr_vocal = curr_track.get('vocal_ratio')
+    next_vocal = next_track.get('vocal_ratio')
+    
+    curr_vocal = curr_vocal if curr_vocal is not None else 0.5
+    next_vocal = next_vocal if next_vocal is not None else 0.5
+    
     if curr_vocal > 0.7 and next_vocal > 0.7:
         advice.append(f"    🗣️ 人声预警 (Vocal Clash): ⚠️ 双重人声冲突风险！建议其中一轨关闭 Vocal Stem")
 
@@ -4909,8 +4927,11 @@ def generate_transition_advice(curr_track: Dict, next_track: Dict, transition_id
     
     # ========== 【V6.2新增】律动变化警告 ==========
     # 检测Genre变化和律动冲突
-    curr_genre = curr_track.get('genre', '').lower()
-    next_genre = next_track.get('genre', '').lower()
+    curr_genre = curr_track.get('genre') or ''
+    next_genre = next_track.get('genre') or ''
+    
+    curr_genre = curr_genre.lower()
+    next_genre = next_genre.lower()
     
     # 定义律动组判断函数（与评分函数中的定义一致）
     def get_rhythm_group_from_genre(genre_str: str) -> str:
@@ -5711,152 +5732,91 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
                 
             is_cached = existing_analysis is not None and not needs_update
             
+            analysis = None
             if existing_analysis and not needs_update:
                 analysis = existing_analysis
             else:
-                # 如果是增量更新，传递 existing_analysis
                 analysis = deep_analyze_track(file_path, db_bpm, existing_analysis=existing_analysis) if file_path else None
                 if analysis and file_path:
                     cache_analysis(file_path, analysis, cache)
-                    # 如果之前是空的，算作新分析；如果是增量，算作更新
-                    was_analyzed = True if not existing_analysis else True
-                else:
-                    was_analyzed = False
             
-            # 【软件优先策略】优先使用数据库中的原始标记 (Rekordbox Priority)
-            db_key = track.key or ""
+            if not analysis:
+                return (idx, None, False, False)
+            
+            # 调性处理
             detected_key = analysis.get('key') if analysis else None
+            db_key = track.key or ""
+            final_key = detected_key if detected_key else (db_key if db_key else "未知")
             
-            if db_key and db_key not in ["未知", "Unknown", ""]:
-                # 如果数据库有值，优先将其转换为统一的 Camelot 格式
-                final_key = convert_open_key_to_camelot(db_key)
-            else:
-                final_key = detected_key if detected_key else "未知"
-            
-            # 【Phase 10】读取手动标记的 Cues (Memory & HotCues)
-            manual_cues = []
-            hotcues_map = {} # Kind -> timestamp
+            # V35 增强数据
             try:
-                cue_query = text("SELECT ID, Kind, InMsec, Comment FROM djmdCue WHERE ContentID = :content_id AND rb_local_deleted = 0")
-                # 显式使用 session.connection() 的 execute 以增加稳定性
-                with pyrekordbox_db.session.no_autoflush:
-                    cue_results = pyrekordbox_db.session.execute(cue_query, {"content_id": true_content_id}).fetchall()
-                    for cid, kind, inmsec, comment in cue_results:
-                        time_sec = inmsec / 1000.0
-                        manual_cues.append({
-                            'kind': kind,
-                            'time': time_sec,
-                            'comment': comment or ""
-                        })
-                        if 1 <= kind <= 8:
-                            hotcues_map[kind] = time_sec
-            except Exception as cue_err:
-                # 如果还是冲突，这里就是导致“没打点”的断点
-                if "concurrent operations" in str(cue_err):
-                    print(f"Warning: DB Busy for track {true_content_id}, retrying once...")
-                    import time
-                    time.sleep(0.1) # 短暂等待重试
-                    try:
-                        with pyrekordbox_db.session.no_autoflush:
-                            cue_results = pyrekordbox_db.session.execute(cue_query, {"content_id": true_content_id}).fetchall()
-                            for cid, kind, inmsec, comment in cue_results:
-                                time_sec = inmsec / 1000.0
-                                manual_cues.append({
-                                    'kind': kind,
-                                    'time': time_sec,
-                                    'comment': comment or ""
-                                })
-                                if 1 <= kind <= 8:
-                                    hotcues_map[kind] = time_sec
-                    except: pass
-                else:
-                    print(f"Warning: Failed to fetch cues for track {true_content_id}: {cue_err}")
+                v35_data = get_v35_enhanced_data(analysis)
+            except:
+                v35_data = {"energy": 50, "vibe_summary": "Standard", "is_v35": False}
 
-            # 【V6.0】语义标签提取 (Semantic Tagging from Comments)
-            stags = set()
-            VOCAL_KW = ['vocal', 'acapella', 'sing', 'voice', '人声']
-            DROP_KW = ['drop', 'hook', 'energy', 'peak', '高潮', '炸']
-            for cue in manual_cues:
-                comment = cue['comment'].lower()
-                if any(kw in comment for kw in VOCAL_KW): stags.add("VOCAL")
-                if any(kw in comment for kw in DROP_KW): stags.add("DROP")
+            # MCP Audio Inspector 数据
+            ai_data = get_audio_inspector_data(file_path) if not is_cached else None
 
-            # 进出点优先级逻辑 (A=Start In, B=Full In, C=Start Out, D=End Out)
-            # 这是一个典型的“叠加上色”混音逻辑
+            # 进出点优先级逻辑
+            hotcues_map = {}
+            manual_cues = []
+            try:
+                hc_query = text("SELECT [Index], [Time] FROM djmdHotCue WHERE ContentID = :cid")
+                hc_results = pyrekordbox_db.session.execute(hc_query, {"cid": true_content_id}).fetchall()
+                for hcr in hc_results:
+                    h_idx = hcr[0] + 1 
+                    h_time = hcr[1] / 1000.0
+                    hotcues_map[h_idx] = h_time
+                    manual_cues.append({'index': h_idx, 'time': h_time})
+            except:
+                pass
+
             hotcue_A = hotcues_map.get(1)
             hotcue_B = hotcues_map.get(2)
             hotcue_C = hotcues_map.get(3)
             hotcue_D = hotcues_map.get(4)
             
-            # 基础兼容性：保持 mix_in_point 为 mix 的起点
             final_mix_in = hotcue_A or (analysis.get('mix_in_point') if analysis else None)
             final_mix_out = hotcue_C or (analysis.get('mix_out_point') if analysis else None)
             
-            # 计算混音窗口长度 (Mix Windows)
             entry_bars = 0
             exit_bars = 0
             track_bpm = (analysis.get('bpm') if analysis else None) or db_bpm or 120
             
-            if hotcue_A and hotcue_B:
+            if hotcue_A is not None and hotcue_B is not None:
                 entry_bars = round(((hotcue_B - hotcue_A) * (track_bpm / 60.0)) / 4.0)
-            if hotcue_C and hotcue_D:
+            if hotcue_C is not None and hotcue_D is not None:
                 exit_bars = round(((hotcue_D - hotcue_C) * (track_bpm / 60.0)) / 4.0)
             
-            # 如果使用了手动打点，标记来源并尝试总结混音规格
             mix_info = ""
-            if entry_bars > 0:
-                mix_info += f"[Entry: {entry_bars}b] "
-            elif hotcue_A:
-                mix_info += "[Manual A-In] "
-                
-            if exit_bars > 0:
-                mix_info += f"[Exit: {exit_bars}b] "
-            elif hotcue_C:
-                mix_info += "[Manual C-Out] "
+            if entry_bars > 0: mix_info += f"[Entry: {entry_bars}b] "
+            if exit_bars > 0: mix_info += f"[Exit: {exit_bars}b] "
             
-            # 【修复】从文件名提取艺术家（如果数据库中没有）
-            artist = track.artist or ""
-            title = track.title or ""
+            # 艺术家和标题
+            artist = getattr(track, 'artist', '') or ""
+            title = getattr(track, 'title', '') or ""
             filename = Path(file_path).stem
-            
-            # 如果数据库有艺术家和标题，直接使用
-            if artist and title:
-                pass  # 使用数据库的值
-            elif not artist and not title:
-                # 都没有，从文件名解析
+            if not (artist and title):
                 if ' - ' in filename:
                     parts = filename.split(' - ', 1)
-                    artist = parts[0].strip()
-                    title = parts[1].strip() if len(parts) > 1 else filename
-                elif '-' in filename:
-                    parts = filename.split('-', 1)
-                    artist = parts[0].strip()
-                    title = parts[1].strip() if len(parts) > 1 else filename
-                else:
-                    title = filename
-                    artist = "Unknown"
-            elif not artist:
-                # 只缺艺术家
-                if ' - ' in filename:
-                    artist = filename.split(' - ', 1)[0].strip()
-                elif '-' in filename:
-                    artist = filename.split('-', 1)[0].strip()
-                else:
-                    artist = "Unknown"
-            elif not title:
-                # 只缺标题，用文件名
-                title = filename
+                    artist = artist or parts[0].strip()
+                    title = title or parts[1].strip()
             
+            stags = set()
+            if analysis:
+                comment = analysis.get('comment', '').upper()
+                if any(kw in comment for kw in ['DROP', 'SOLO']): stags.add("DROP")
+
             track_dict = {
                 'id': true_content_id,
                 'content_uuid': getattr(track, 'content_uuid', None),
-                'title': title,
-                'artist': artist,
+                'title': title or filename,
+                'artist': artist or "Unknown",
                 'file_path': file_path,
                 'bpm': analysis.get('bpm') if analysis else (db_bpm or 120),
                 'key': final_key,
-                'energy': analysis.get('energy') if analysis else 50,
-                'duration': (ai_data.get('format', {}).get('duration') if ai_data else None) or (analysis.get('duration') if analysis else None) or 180,
+                'energy': v35_data.get('energy', 50),
+                'duration': (analysis.get('duration') if analysis else None) or 180,
                 'mix_in_point': final_mix_in,
                 'mix_out_point': final_mix_out,
                 'hotcue_A': hotcue_A,
@@ -5865,87 +5825,54 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
                 'hotcue_D': hotcue_D,
                 'entry_bars': entry_bars,
                 'exit_bars': exit_bars,
-                'manual_cues': manual_cues,
                 'mix_info': mix_info.strip(),
                 'genre': analysis.get('genre') if analysis else None,
-                'structure': analysis.get('structure') if analysis else None,
-                'vocals': analysis.get('vocals') if analysis else None,
-                'drums': analysis.get('drums') if analysis else None,
-                # MCP 增强字段
-                'audio_quality_kbps': int(ai_data.get('format', {}).get('bitrate', 0)/1000) if ai_data else 0,
-                'sample_rate': ai_data.get('format', {}).get('sampleRate') if ai_data else 0,
-                # V6.4新增：音频特征深度匹配字段
-                'brightness': analysis.get('brightness') if analysis else 0.5,  # 音色明亮度
-                'kick_drum_power': analysis.get('kick_drum_power') if analysis else 0.5,  # 底鼓力度
-                'sub_bass_level': analysis.get('sub_bass_level') if analysis else 0.5,  # 低音能量
-                'dynamic_range_db': analysis.get('dynamic_range_db') if analysis else 10,  # 动态范围
-                'valence': analysis.get('valence') if analysis else 0.5,  # 情感效价
-                'arousal': analysis.get('arousal') if analysis else 0.5,  # 情感唤醒度
-                # V6.4新增：更多深度匹配字段
-                'phrase_length': analysis.get('phrase_length') if analysis else 16,  # 乐句长度
-                'intro_vocal_ratio': analysis.get('intro_vocal_ratio') if analysis else 0.5,  # 前奏人声比例
-                'outro_vocal_ratio': analysis.get('outro_vocal_ratio') if analysis else 0.5,  # 尾奏人声比例
-                'busy_score': analysis.get('busy_score') if analysis else 0.5,  # 编曲繁忙度
-                'tonal_balance_low': analysis.get('tonal_balance_low') if analysis else 0.5,  # 低频占比
-                'tonal_balance_mid': analysis.get('tonal_balance_mid') if analysis else 0.3,  # 中频占比
-                'tonal_balance_high': analysis.get('tonal_balance_high') if analysis else 0.1,  # 高频占比
-                'hook_strength': analysis.get('hook_strength') if analysis else 0.5,  # Hook强度
-                'tags': analysis.get('tags', []) if analysis else [],  # 【V4.0新增】多维智能标签
-                'semantic_tags': list(stags) if 'stags' in locals() else [], # V6.0
-                'time_signature': analysis.get('time_signature', '4/4') if analysis else '4/4', # V6.2
-                'swing_dna': analysis.get('swing_dna', 0.0) if analysis else 0.0, # V6.2
-                'spectral_bands': analysis.get('spectral_bands', {}) if analysis else {}, # V6.2
+                'brightness': analysis.get('brightness') if analysis else 0.5,
+                'kick_drum_power': analysis.get('kick_drum_power') if analysis else 0.5,
+                'sub_bass_level': analysis.get('sub_bass_level') if analysis else 0.5,
+                'dynamic_range_db': analysis.get('dynamic_range_db') if analysis else 10,
+                'valence': analysis.get('valence') if analysis else 0.5,
+                'arousal': analysis.get('arousal') if analysis else 0.5,
+                'phrase_length': analysis.get('phrase_length') if analysis else 16,
+                'intro_vocal_ratio': analysis.get('intro_vocal_ratio') if analysis else 0.5,
+                'outro_vocal_ratio': analysis.get('outro_vocal_ratio') if analysis else 0.5,
+                'busy_score': analysis.get('busy_score') if analysis else 0.5,
+                'tonal_balance_low': analysis.get('tonal_balance_low') if analysis else 0.5,
+                'tonal_balance_mid': analysis.get('tonal_balance_mid') if analysis else 0.3,
+                'tonal_balance_high': analysis.get('tonal_balance_high') if analysis else 0.1,
+                'hook_strength': analysis.get('hook_strength') if analysis else 0.5,
+                'tags': analysis.get('tags', []) if analysis else [],
+                'semantic_tags': list(stags),
+                'time_signature': analysis.get('time_signature', '4/4') if analysis else '4/4',
+                'swing_dna': analysis.get('swing_dna', 0.0) if analysis else 0.0,
+                'vibe_summary': v35_data.get('vibe_summary', "Standard"),
             }
 
-            # 【V5.3 P1】注入 Rekordbox PSSI (Intensity)
+            # PSSI 注入
             if PHRASE_READER_AVAILABLE and track_dict.get('content_uuid'):
                 try:
-                    pssi_phrases = PHRASE_READER.get_phrases(track_dict['content_uuid'], bpm=track_dict['bpm'])
+                    ps_bpm = track_dict.get('bpm')
+                    pssi_phrases = PHRASE_READER.get_phrases(track_dict['content_uuid'], bpm=ps_bpm)
                     if pssi_phrases:
-                        # 提取前 2 个段落和后 2 个段落的平均强度
-                        # 这样做是为了捕捉 Intro 的起步强度和 Outro 的收尾强度
                         intro_ints = [p['intensity'] for p in pssi_phrases[:2] if p.get('intensity') is not None]
                         outro_ints = [p['intensity'] for p in pssi_phrases[-2:] if p.get('intensity') is not None]
-                        
                         track_dict['pssi_intensity_intro'] = sum(intro_ints) / len(intro_ints) if intro_ints else 3.0
                         track_dict['pssi_intensity_outro'] = sum(outro_ints) / len(outro_ints) if outro_ints else 3.0
                         track_dict['pssi_data_available'] = True
                 except Exception as pssi_err:
                     print(f"Warning: Failed to inject PSSI data: {pssi_err}")
             
-            # 【最强大脑：系统串联】生成专业量化 HotCues
-            pro_hotcues = {}
+            # Pro Hotcues
             if HOTCUE_GENERATOR_ENABLED and analysis and file_path:
                 try:
-                    # 组装专家建议点（基于 Sorter 和结构分析的混合决策）
-                    target_points = {
-                        'mix_in': track_dict['mix_in_point'],
-                        'mix_out': track_dict['mix_out_point']
-                    }
-                    # 如果有 B 点（手动或分析得出），同步传递以辅助生成 B 点标点
-                    if track_dict.get('hotcue_B'):
-                        target_points['transition_in'] = track_dict['hotcue_B']
-                        
-                    raw_pro = generate_hotcues(
-                        file_path, 
-                        bpm=track_dict['bpm'], 
-                        duration=track_dict['duration'], 
-                        structure=analysis,
-                        content_uuid=track_dict.get('content_uuid'),
-                        content_id=track_dict.get('id'),
-                        custom_mix_points=target_points,
-                        track_tags=track_dict.get('track_tags', {})
-                    )
-                    # 确保提取 hotcues 子字典，保留 PhraseLabel
-                    pro_hotcues = raw_pro.get('hotcues', {})
-                except Exception as e:
-                    print(f"Warning: Pro Hotcue generation failed: {e}")
+                    track_dict['pro_hotcues'] = generate_hotcues(
+                        file_path, bpm=track_dict['bpm'], duration=track_dict['duration'], 
+                        structure=analysis, content_uuid=track_dict.get('content_uuid'),
+                        content_id=track_dict.get('id'), custom_mix_points={'mix_in': final_mix_in, 'mix_out': final_mix_out}
+                    ).get('hotcues', {})
+                except: track_dict['pro_hotcues'] = {}
+            else: track_dict['pro_hotcues'] = {}
 
-            track_dict['pro_hotcues'] = pro_hotcues
-            
-            # 【DEBUG】确认返回
-            # print(f"DEBUG: Track {idx} 已准备好: {track_dict['title']}")
-            
             return (idx, track_dict, is_cached, (analysis is not None and not is_cached))
         
         # 结果聚合优化
@@ -5958,165 +5885,81 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
         # 使用多线程并行分析（限制线程数避免过载）
         try:
             from concurrent.futures import ThreadPoolExecutor, as_completed
-            max_workers = min(4, len(tracks_raw))  # 最多4个线程
+            max_workers = min(8, len(tracks_raw))
             
-            track_results = []
+            print(f"DEBUG: 开始并行分析 {len(tracks_raw)} 首歌曲...")
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                futures = {executor.submit(analyze_single_track, (idx, track)): (idx, track) 
-                          for idx, track in enumerate(tracks_raw, 1)}
-                
-                completed = 0
-                for future in as_completed(futures):
-                    completed += 1
+                future_to_track = {executor.submit(analyze_single_track, (i, t)): i for i, t in enumerate(tracks_raw)}
+                for future in as_completed(future_to_track):
                     try:
-                        res = future.result()
-                        if res and len(res) == 4:
-                            idx, track_dict, is_cached, was_analyzed = res
-                            if track_dict:
-                                track_results.append((idx, track_dict))
-                                if is_cached: cached_count += 1
-                                if was_analyzed:
-                                    analyzed_count += 1
-                                    cache_updated = True
-                            else:
-                                pass # 已打印过滤原因
-                        else:
-                            print(f"DEBUG: Future {completed} 返回了异常格式: {res}")
-                        
-                        # 显示进度
-                        if completed % 5 == 0 or completed == len(tracks_raw):
-                            elapsed = (datetime.now() - start_time).total_seconds()
-                            if completed > 0:
-                                avg_time = elapsed / completed
-                                remaining = (len(tracks_raw) - completed) * avg_time
-                                progress_pct = (completed / len(tracks_raw)) * 100
-                                try:
-                                    print(f"[进度] {completed}/{len(tracks_raw)} ({progress_pct:.1f}%) - 已用时间: {int(elapsed/60)}分{int(elapsed%60)}秒 - 预计剩余: {int(remaining/60)}分{int(remaining%60)}秒")
-                                    print(f"  缓存: {cached_count}首 | 新分析: {analyzed_count}首")
-                                except:
-                                    print(f"[Progress] {completed}/{len(tracks_raw)} ({progress_pct:.1f}%)")
+                        idx, track_dict, was_analyzed, is_cached = future.result()
+                        if track_dict:
+                            tracks.append(track_dict)
+                            if is_cached: cached_count += 1
+                            if was_analyzed: 
+                                analyzed_count += 1
+                                cache_updated = True
                     except Exception as e:
-                        try:
-                            print(f"分析失败: {e}")
-                        except:
-                            pass
+                        print(f"  [ERROR] Track analysis failed at index {idx}: {e}")
+                    
+                    # 更新进度
+                    completed = len(tracks)
+                    if completed % 5 == 0 or completed == len(tracks_raw):
+                        print(f"  进度: {completed}/{len(tracks_raw)} | 缓存: {cached_count} | 新分析: {analyzed_count}")
             
-            # 按原始顺序排序
-            track_results.sort(key=lambda x: x[0])
-            tracks = [tr[1] for tr in track_results]
-            print(f"DEBUG: Final tracks count after analysis: {len(tracks)}")
+            print(f"DEBUG: 分析完成，成功加载 {len(tracks)} 首歌曲。")
             
         except ImportError:
-            # 如果concurrent.futures不可用，回退到串行分析
+            print("Warning: ThreadPoolExecutor not available, falling back to serial analysis.")
             for idx, track in enumerate(tracks_raw, 1):
-                file_path = track.file_path if hasattr(track, 'file_path') else None
+                res = analyze_single_track((idx, track))
+                if res[1]: tracks.append(res[1])
                 
-                if not file_path or not os.path.exists(file_path):
-                    try:
-                        path_query = text("SELECT Path FROM djmdContent WHERE ID = :content_id")
-                        path_result = pyrekordbox_db.session.execute(
-                            path_query, {"content_id": track.id}
-                        ).fetchone()
-                        if path_result and path_result[0]:
-                            file_path = path_result[0]
-                            if not os.path.exists(file_path):
-                                potential_paths = [
-                                    os.path.join(r"D:\song", os.path.basename(file_path)),
-                                    file_path,
-                                ]
-                                for pp in potential_paths:
-                                    if os.path.exists(pp):
-                                        file_path = pp
-                                        break
-                    except:
-                        pass
-                
-                if not file_path or not os.path.exists(file_path):
-                    # print(f"DEBUG: 跳过文件不存在: {file_path}")
-                    continue
-                
-                # 尝试从缓存获取
-                db_bpm = track.bpm if hasattr(track, 'bpm') else None
-                cached_analysis = get_cached_analysis(file_path, cache)
-                is_cached = cached_analysis is not None
-                
-                if cached_analysis:
-                    # 使用缓存结果
-                    analysis = cached_analysis
-                    cached_count += 1
-                else:
-                    # 需要重新分析
-                    analysis = deep_analyze_track(file_path, db_bpm)
-                    if analysis:
-                        cache_analysis(file_path, analysis, cache)
-                        cache_updated = True
-                        analyzed_count += 1
-                
-                # 优先使用检测到的调性，如果没有则使用数据库中的调性
-                detected_key = analysis.get('key') if analysis else None
-                db_key = track.key or ""
-                final_key = detected_key if detected_key else (db_key if db_key else "未知")
-                
-                track_dict = {
-                    'id': track.id,
-                    'title': track.title or "",
-                    'artist': track.artist or "",
-                    'file_path': file_path,
-                    'bpm': analysis.get('bpm') if analysis else (db_bpm or 120),
-                    'key': final_key,
-                    'energy': analysis.get('energy') if analysis else 50,
-                    'duration': analysis.get('duration') if analysis else 180,
-                    'mix_in_point': analysis.get('mix_in_point') if analysis else None,
-                    'mix_out_point': analysis.get('mix_out_point') if analysis else None,
-                    'genre': analysis.get('genre') if analysis else None,
-                    'structure': analysis.get('structure') if analysis else None,  # 歌曲结构信息
-                    'vocals': analysis.get('vocals') if analysis else None,  # 人声检测结果
-                    'drums': analysis.get('drums') if analysis else None,  # 鼓点检测结果
-                    # V6.4新增：音频特征深度匹配字段
-                    'brightness': analysis.get('brightness') if analysis else 0.5,  # 音色明亮度
-                    'kick_drum_power': analysis.get('kick_drum_power') if analysis else 0.5,  # 底鼓力度
-                    'sub_bass_level': analysis.get('sub_bass_level') if analysis else 0.5,  # 低音能量
-                    'dynamic_range_db': analysis.get('dynamic_range_db') if analysis else 10,  # 动态范围
-                    'valence': analysis.get('valence') if analysis else 0.5,  # 情感效价
-                    'arousal': analysis.get('arousal') if analysis else 0.5,  # 情感唤醒度
-                    # V6.4新增：更多深度匹配字段
-                    'phrase_length': analysis.get('phrase_length') if analysis else 16,  # 乐句长度
-                    'intro_vocal_ratio': analysis.get('intro_vocal_ratio') if analysis else 0.5,  # 前奏人声比例
-                    'outro_vocal_ratio': analysis.get('outro_vocal_ratio') if analysis else 0.5,  # 尾奏人声比例
-                    'busy_score': analysis.get('busy_score') if analysis else 0.5,  # 编曲繁忙度
-                    'tonal_balance_low': analysis.get('tonal_balance_low') if analysis else 0.5,  # 低频占比
-                    'tonal_balance_mid': analysis.get('tonal_balance_mid') if analysis else 0.3,  # 中频占比
-                    'tonal_balance_high': analysis.get('tonal_balance_high') if analysis else 0.1,  # 高频占比
-                    'hook_strength': analysis.get('hook_strength') if analysis else 0.5,  # Hook强度
-                    # V4.1新增：乐句长度（小节数）感知
-                    'intro_bars': round((analysis.get('intro_end_time') or analysis.get('mix_in_point') or 0) * (analysis.get('bpm') or 120) / 240) if analysis else 8,
-                    'outro_bars': round(((analysis.get('duration') or 180) - (analysis.get('outro_start_time') or analysis.get('mix_out_point') or 180)) * (analysis.get('bpm') or 120) / 240) if analysis else 8,
-                    'first_drop_time': analysis.get('first_drop_time') if analysis else None,
-                    # V6.1 Pro-Acoustics: 响度与律动偏移
-                    'lufs_db': analysis.get('loudness_lufs') if analysis else -10.0,
-                    'swing_dna': analysis.get('swing_dna', 0.0) if analysis else 0.0, # V6.2
-                    'time_signature': analysis.get('time_signature', '4/4') if analysis else '4/4', # V6.2
-                    'spectral_bands': analysis.get('spectral_bands', {}) if analysis else {}, # V6.2
-                }
-                tracks.append(track_dict)
-                
-                # 显示进度（每首歌曲或每10首）
-                if idx == 1 or idx % 10 == 0 or idx == len(tracks_raw):
-                    elapsed = (datetime.now() - start_time).total_seconds()
-                    if idx > 0:
-                        avg_time_per_track = elapsed / idx
-                        remaining = (len(tracks_raw) - idx) * avg_time_per_track
-                        progress_pct = (idx / len(tracks_raw)) * 100
-                        
-                        try:
-                            print(f"[进度] {idx}/{len(tracks_raw)} ({progress_pct:.1f}%) - 已用时间: {int(elapsed/60)}分{int(elapsed%60)}秒 - 预计剩余: {int(remaining/60)}分{int(remaining%60)}秒")
-                            print(f"  缓存: {cached_count}首 | 新分析: {analyzed_count}首")
-                            if idx < len(tracks_raw):
-                                status = "[缓存]" if is_cached else "[分析中]"
-                                print(f"  {status} {track.title[:50] if track.title else 'Unknown'}...")
-                        except:
-                            print(f"[Progress] {idx}/{len(tracks_raw)} ({progress_pct:.1f}%) - Elapsed: {int(elapsed/60)}m{int(elapsed%60)}s - Remaining: {int(remaining/60)}m{int(remaining%60)}s")
-                            print(f"  Cached: {cached_count} | New: {analyzed_count}")
+        if not tracks:
+            print("Error: No tracks to sort.")
+            return []
+
+        # 【V5.1 HOTFIX】Data Sanitization against NoneType crashes
+        # 针对 Remix 歌曲可能存在的元数据缺失进行防御性填充
+        for t in tracks:
+            if t.get('bpm') is None: t['bpm'] = 120.0
+            if t.get('energy') is None: t['energy'] = 50.0
+            
+            # Key 特殊处理
+            raw_key = t.get('key')
+            if raw_key is None:
+                t['key'] = '1A'
+            elif hasattr(raw_key, 'Name'):
+                t['key'] = raw_key.Name if raw_key.Name else '1A'
+            elif not isinstance(raw_key, str):
+                t['key'] = str(raw_key) if raw_key else '1A'
+            
+            # Ensure Types
+            try: t['bpm'] = float(t['bpm'])
+            except: t['bpm'] = 120.0
+            try: t['energy'] = float(t['energy'])
+            except: t['energy'] = 50.0
+
+        # 按 BPM 排序 (使用 null-safe key)
+        tracks.sort(key=lambda x: x.get('bpm') or 120.0)
+        print(f"DEBUG: 基础 BPM 排序完成。")
+
+        # 过滤过短歌曲
+        valid_tracks = [t for t in tracks if t.get('duration', 0) > 30]
+        if len(valid_tracks) < len(tracks):
+            print(f"  [过滤] 移除了 {len(tracks) - len(valid_tracks)} 首过短(<30s)歌曲")
+            tracks = valid_tracks
+
+        # 根据模式选择排序算法
+        print(f"DEBUG: 选择排序模式 (Boutique={is_boutique}, Master={is_master}, Live={is_live})")
+        if is_boutique:
+            sets = [create_boutique_highlight_set(tracks)]
+        elif is_live:
+            sets = create_live_stream_sets(tracks, songs_per_set)
+        else:
+            sets = create_harmonic_sets(tracks, songs_per_set)
+        
+        print(f"DEBUG: 排序完成，共生成 {len(sets)} 个 Set。")
         
         # 保存缓存
         if cache_updated:
@@ -6159,29 +6002,6 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
         if len(unique_tracks) < len(tracks):
             print(f"[去重] 移除 {len(tracks) - len(unique_tracks)} 首原始重复记录 (保留 {len(unique_tracks)} 首)")
         tracks = unique_tracks
-
-        # 【V5.1 HOTFIX】Data Sanitization against NoneType crashes
-        # 针对 Remix 歌曲可能存在的元数据缺失进行防御性填充
-        for t in tracks:
-            if t.get('bpm') is None: t['bpm'] = 120.0
-            if t.get('energy') is None: t['energy'] = 50.0
-            
-            # Key 特殊处理：可能是 DjmdKey 对象或 None
-            raw_key = t.get('key')
-            if raw_key is None:
-                t['key'] = '1A'
-            elif hasattr(raw_key, 'Name'):  # Handle DjmdKey object
-                t['key'] = raw_key.Name if raw_key.Name else '1A'
-            elif not isinstance(raw_key, str):
-                t['key'] = str(raw_key) if raw_key else '1A'
-            # else: it's already a valid string
-            
-            # Ensure BPM is float
-            try: t['bpm'] = float(t['bpm'])
-            except: t['bpm'] = 120.0
-            # Ensure Energy is float
-            try: t['energy'] = float(t['energy'])
-            except: t['energy'] = 50.0
 
         
         try:
@@ -6297,7 +6117,7 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
             print("\n[Boutique] 精品单体模式：跳过BPM自动分组，强制合并为单个精品Set")
             # 在精品模式下，我们不分组，直接把所有歌曲当成一条长轴
             # 但我们会先按BPM初排一下，给排序引擎一个好的起始点
-            tracks.sort(key=lambda x: x.get('bpm', 0))
+            tracks.sort(key=lambda x: (x.get('bpm') or 0))
             bpm_groups = [tracks]
         else:
             try:
@@ -7175,13 +6995,22 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
                     except:
                         key_display = key
                     
+                    # 获取 V35 智能标签
+                    vibe_summary = track.get('vibe_summary', "Standard")
+                    is_v35 = "V35" in vibe_summary or track.get('is_v35', False) # 标记是否为 SOTA 2026 数据
+                    ai_tag = " ✅[AI_FULL_V35_SOTA]" if is_v35 else " ✅[AI_BASIC]"
+                    
                     if is_bridge:
-                        f.write(f"{idx:2d}. [桥接曲] {artist} - {title}\n")
+                        f.write(f"{idx:2d}. [桥接曲] {artist} - {title}{ai_tag}\n")
                         f.write(f"    BPM: {bpm:.1f} | 调性: {key_display} | 能量: {energy:.0f}/100 | 时长: {duration_str}\n")
+                        if is_v35:
+                            f.write(f"    🧠 智能分析 (V35): {vibe_summary}\n")
                         f.write(f"    [自动插入原因] {bridge_reason}\n")
                     else:
-                        f.write(f"{idx:2d}. {artist} - {title}\n")
+                        f.write(f"{idx:2d}. {artist} - {title}{ai_tag}\n")
                         f.write(f"    BPM: {bpm:.1f} | 调性: {key_display} | 能量: {energy:.0f}/100 | 时长: {duration_str}\n")
+                        if is_v35:
+                            f.write(f"    🧠 智能分析 (V35): {vibe_summary}\n")
                     
                     # 显示歌曲结构信息（简化版：只显示关键段落）
                     structure = track.get('structure')
