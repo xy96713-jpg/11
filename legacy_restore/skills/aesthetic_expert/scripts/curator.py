@@ -42,7 +42,7 @@ class AestheticCurator:
         """从能量和人声比例等推断情感标签"""
         energy = track.get('energy', 50)
         vocal_ratio = track.get('vocal_ratio', 0.5)
-        genre = track.get('genre', '').lower()
+        genre = (track.get('genre') or '').lower()
         
         if energy > 75:
             if "techno" in genre or "dark" in genre: return "Dark"
@@ -56,11 +56,15 @@ class AestheticCurator:
         """
         计算两首歌之间的“美学和谐度” (0-100)
         """
+        # 兼容性处理：如果输入是原始对象，尝试提取 analysis 块
+        t1 = t1.get('analysis', t1)
+        t2 = t2.get('analysis', t2)
+
         score = 70.0 # 基础分
         details = {}
 
-        g1 = t1.get('genre', '').lower()
-        g2 = t2.get('genre', '').lower()
+        g1 = (t1.get('genre') or '').lower()
+        g2 = (t2.get('genre') or '').lower()
         v1 = self.get_track_vibe(t1)
         v2 = self.get_track_vibe(t2)
 
@@ -125,11 +129,53 @@ class AestheticCurator:
 
             score += tag_match_score
 
+        # --- E. [NEW V7.5] V35 Molecular Vibe Matching ---
+        vibe_sum1 = t1.get('vibe_summary', '')
+        vibe_sum2 = t2.get('vibe_summary', '')
+        
+        if vibe_sum1 and vibe_sum2:
+            def parse_vibe(v_sum):
+                parts = v_sum.split(" | ")
+                d = {}
+                for p in parts:
+                    if ":" in p:
+                        k, v = p.split(": ", 1)
+                        d[k.lower()] = v.lower()
+                return d
+            
+            dna1 = parse_vibe(vibe_sum1)
+            dna2 = parse_vibe(vibe_sum2)
+            
+            dna_bonus = 0
+            # 1. 时代质感一致性 (Texture Eras)
+            # 拒绝：Lo-fi Texture x Ultra-Digital/Silk
+            tex1, tex2 = dna1.get('texture', ''), dna2.get('texture', '')
+            if tex1 and tex2:
+                if (tex1 == 'lo-fi' and tex2 in ['silk', 'clean', 'ultra-digital']) or \
+                   (tex2 == 'lo-fi' and tex1 in ['silk', 'clean', 'ultra-digital']):
+                    dna_bonus -= 12
+                    details['v35_texture_clash'] = "⚠️ Era Texture Clash (Lo-fi vs Hi-fi) -12"
+                elif tex1 == tex2:
+                    dna_bonus += 8
+                    details['v35_texture_match'] = f"V35 Texture Match ({tex1.capitalize()}) +8"
+
+            # 2. 空间听感对齐 (Spatial Field)
+            s1_field, s2_field = dna1.get('space', ''), dna2.get('space', '')
+            if s1_field and s2_field:
+                if s1_field == s2_field:
+                    dna_bonus += 5
+                    details['v35_space_match'] = f"Spatial Harmony ({s1_field.capitalize()}) +5"
+                elif (s1_field == 'ethereal' and s2_field == 'deep') or (s1_field == 'deep' and s2_field == 'ethereal'):
+                    dna_bonus += 10
+                    details['v35_space_synergy'] = "Cinematic Spatial Synergy +10"
+
+            score += dna_bonus
+
         return max(0.0, min(100.0, score)), details
 
     def get_mix_bible_advice(self, t1: Dict, t2: Dict) -> Dict:
         """根据流派返回最强混音建议"""
-        g2 = t2.get('genre', '').lower()
+        g2 = (t2.get('genre') or '').lower()
         
         # 匹配最接近的流派规则
         rule = self.GENRE_BIBLE.get("house") # 默认

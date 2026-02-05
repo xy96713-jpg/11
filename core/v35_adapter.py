@@ -26,21 +26,41 @@ def interpret_energy_tier(vibe_tags):
                     return value
     return 50
 
-def extract_vibe_summary(sonic_dna, vibe_analysis):
+def extract_vibe_summary(sonic_dna, vibe_analysis=None):
     """
     Summarizes the "feel" of the track based on Sonic DNA.
+    Maps granular Neural tags to broad categories for synergy scoring.
     """
+    if vibe_analysis is None:
+        vibe_analysis = {}
+        
     summary = []
     
+    # Mapping for Spatial Synergy
+    spatial_map = {
+        "wide": ["Stadium", "Wide", "Ambient", "Envelopment", "Binaural"],
+        "narrow": ["Mono", "Dry", "Centered", "Close-mic"],
+        "cinematic": ["Cinematic", "Ethereal", "Epic"]
+    }
+    
+    def map_tag(tag, mapping):
+        for broad, patterns in mapping.items():
+            if any(p.lower() in tag.lower() for p in patterns):
+                return broad
+        return tag
+
     # 1. Check Cognitive Intent
     cog = vibe_analysis.get("cognitive_dna", [])
     if cog:
-        summary.append(f"Intent: {cog[0]['tag']}")
+        intent = cog[0]['tag']
+        summary.append(f"Intent: {intent}")
         
     # 2. Check Spatial/Acoustic
     spatial = vibe_analysis.get("spatial", [])
     if spatial:
-        summary.append(f"Space: {spatial[0]['tag']}")
+        raw_space = spatial[0]['tag']
+        mapped_space = map_tag(raw_space, spatial_map)
+        summary.append(f"Space: {mapped_space}")
         
     # 3. Check Production Era
     era = vibe_analysis.get("production_era", [])

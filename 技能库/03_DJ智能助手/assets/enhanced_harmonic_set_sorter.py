@@ -1679,7 +1679,6 @@ def _calculate_candidate_score(track_data: tuple) -> tuple:
         # 频谱掩蔽严重冲突惩罚
         if mi_score < 40 and not is_boutique:
              score -= 50
-        elif mi_score < 30:
              score -= 150
              
     # ========== 【Phase 11】审美维度注入：Aesthetic Curator (审美一致性) ==========
@@ -5668,10 +5667,23 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
             print(f"Found {len(tracks_raw)} tracks in playlist")
             print("\nStarting deep analysis...")
             print("=" * 60)
-        
         # 加载缓存
         cache = load_cache()
         cache_updated = False
+        
+        # [V35 Integration] Load V35 Sonic DNA Cache
+        v35_cache = {}
+        try:
+            # CORRECT PATH found via verification
+            v35_cache_path = r"D:\anti\scripts\song_analysis_cache.json"
+            if os.path.exists(v35_cache_path):
+                with open(v35_cache_path, 'r', encoding='utf-8') as f:
+                    v35_cache = json.load(f)
+                print(f"[V35] Loaded Sonic DNA cache: {len(v35_cache)} items from {v35_cache_path}")
+            else:
+                print(f"[V35] Warning: Sonic DNA cache not found at {v35_cache_path}")
+        except Exception as e:
+            print(f"[V35] Failed to load Sonic DNA cache: {e}")
         
         # 深度分析所有歌曲（使用缓存加速 + 并行分析）
         tracks = []
@@ -5739,6 +5751,45 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
                 analysis = deep_analyze_track(file_path, db_bpm, existing_analysis=existing_analysis) if file_path else None
                 if analysis and file_path:
                     cache_analysis(file_path, analysis, cache)
+            
+            # [V35 Integration] Inject God Mode Details
+            if analysis:
+                v35_entry = None
+                # [Optimization] Build a filename map once if not built
+                if 'v35_filename_map' not in globals():
+                    global v35_filename_map
+                    v35_filename_map = {}
+                    for k, v in v35_cache.items():
+                        fpath = v.get('file_path', '').replace('\\', '/').lower()
+                        if fpath:
+                            v35_filename_map[os.path.basename(fpath)] = v
+                
+                # Try finding match in V35 cache (song_analysis_cache.json)
+                # 1. By Filename
+                if file_path:
+                    fname = os.path.basename(file_path)
+                    v35_entry = v35_filename_map.get(fname)
+                
+                if not v35_entry and true_content_id and str(true_content_id) in v35_cache:
+                    v35_entry = v35_cache[str(true_content_id)]
+
+                if v35_entry:
+                    # Data is nested in 'analysis' key in song_analysis_cache.json
+                    cached_inner = v35_entry.get('analysis', {})
+                    
+                    # Merge V35 fields
+                    analysis['sonic_dna'] = cached_inner.get('sonic_dna', [])
+                    analysis['god_mode_details'] = cached_inner.get('god_mode_details', {})
+                    analysis['tags'] = cached_inner.get('tags', [])
+                    
+                    # Also update Vibe Summary via Adapter
+                    try:
+                        v35_enhanced = get_v35_enhanced_data(analysis)
+                        analysis['vibe_summary'] = v35_enhanced.get('vibe_summary', 'Standard')
+                        analysis['is_v35'] = True
+                    except:
+                        pass
+                    # print(f"  [V35] Injected data for {getattr(track, 'title', 'Unknown')}")
             
             if not analysis:
                 return (idx, None, False, False)
@@ -5846,6 +5897,7 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
                 'time_signature': analysis.get('time_signature', '4/4') if analysis else '4/4',
                 'swing_dna': analysis.get('swing_dna', 0.0) if analysis else 0.0,
                 'vibe_summary': v35_data.get('vibe_summary', "Standard"),
+                'is_v35': v35_data.get('is_v35', False),
             }
 
             # PSSI 注入
@@ -5885,7 +5937,7 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
         # 使用多线程并行分析（限制线程数避免过载）
         try:
             from concurrent.futures import ThreadPoolExecutor, as_completed
-            max_workers = min(8, len(tracks_raw))
+            max_workers = 1 # [HOTFIX] Force serial to prevent deadlock
             
             print(f"DEBUG: 开始并行分析 {len(tracks_raw)} 首歌曲...")
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -5950,16 +6002,17 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
             print(f"  [过滤] 移除了 {len(tracks) - len(valid_tracks)} 首过短(<30s)歌曲")
             tracks = valid_tracks
 
-        # 根据模式选择排序算法
-        print(f"DEBUG: 选择排序模式 (Boutique={is_boutique}, Master={is_master}, Live={is_live})")
-        if is_boutique:
-            sets = [create_boutique_highlight_set(tracks)]
-        elif is_live:
-            sets = create_live_stream_sets(tracks, songs_per_set)
-        else:
-            sets = create_harmonic_sets(tracks, songs_per_set)
+        # [HOTFIX] Removed redundant dispatch block that caused NameError
+        # print(f"DEBUG: 选择排序模式 (Boutique={is_boutique}, Master={is_master}, Live={is_live})")
+        # if is_boutique:
+        #     sets = [create_boutique_highlight_set(tracks)]
+        # elif is_live:
+        #     sets = create_live_stream_sets(tracks, songs_per_set)
+        # else:
+        #     # sets = create_harmonic_sets(tracks, songs_per_set)
+        #     pass
         
-        print(f"DEBUG: 排序完成，共生成 {len(sets)} 个 Set。")
+        # print(f"DEBUG: 排序完成，共生成 {len(sets) if 'sets' in locals() else 0} 个 Set。")
         
         # 保存缓存
         if cache_updated:
@@ -6984,173 +7037,177 @@ async def create_enhanced_harmonic_sets(playlist_name: str = "流行Boiler Room"
                             return f"{seconds:.3f}秒 ({minutes}分{secs}秒){beats_info}"
                         return f"{seconds:.3f}秒{beats_info}"
                     
-                    # 格式化输出（检查是否为桥接曲）
-                    is_bridge = track.get('is_bridge', False)
-                    bridge_reason = track.get('bridge_reason', '')
-                    
-                    # 【P0优化】使用优化的调性显示（Camelot + Open Key）
                     try:
-                        from export_set_to_csv import format_key_display
-                        key_display = format_key_display(key)
-                    except:
-                        key_display = key
-                    
-                    # 获取 V35 智能标签
-                    vibe_summary = track.get('vibe_summary', "Standard")
-                    is_v35 = "V35" in vibe_summary or track.get('is_v35', False) # 标记是否为 SOTA 2026 数据
-                    ai_tag = " ✅[AI_FULL_V35_SOTA]" if is_v35 else " ✅[AI_BASIC]"
-                    
-                    if is_bridge:
-                        f.write(f"{idx:2d}. [桥接曲] {artist} - {title}{ai_tag}\n")
-                        f.write(f"    BPM: {bpm:.1f} | 调性: {key_display} | 能量: {energy:.0f}/100 | 时长: {duration_str}\n")
-                        if is_v35:
-                            f.write(f"    🧠 智能分析 (V35): {vibe_summary}\n")
-                        f.write(f"    [自动插入原因] {bridge_reason}\n")
-                    else:
-                        f.write(f"{idx:2d}. {artist} - {title}{ai_tag}\n")
-                        f.write(f"    BPM: {bpm:.1f} | 调性: {key_display} | 能量: {energy:.0f}/100 | 时长: {duration_str}\n")
-                        if is_v35:
-                            f.write(f"    🧠 智能分析 (V35): {vibe_summary}\n")
-                    
-                    # 显示歌曲结构信息（简化版：只显示关键段落）
-                    structure = track.get('structure')
-                    if structure:
-                        # 只显示Intro和Outro的时间点（DJ最关心的混音区域）
-                        key_points = []
-                        if structure.get('intro'):
-                            start, end = structure['intro']
-                            key_points.append(f"Intro结束: {format_time(end, bpm)}")
-                        if structure.get('outro'):
-                            start, end = structure['outro']
-                            key_points.append(f"Outro开始: {format_time(start, bpm)}")
+                        # [HOTFIX] Global Try-Except for Report Generation Loop
+                        artist = track.get('artist', 'Unknown')
+                        title = track.get('title', 'Unknown')
+                        bpm = track.get('bpm', 0)
+                        key = track.get('key', '未知')
+                        energy = track.get('energy', 0)
+                        duration = track.get('duration', 0)
+                        mix_in = track.get('mix_in_point')
+                        mix_out = track.get('mix_out_point')
                         
-                        if key_points:
-                            f.write(f"    结构: {' | '.join(key_points)}\n")
-
-                    # 【V9.2 专家级透明度】显示 Pro Hotcues (Rekordbox 标准)
-                    pro_hcs = track.get('pro_hotcues', {})
-                    if pro_hcs:
-                        f.write(f"    ⭐ Pro Hotcues (Rekordbox 协同):\n")
-                        for hc_key in ['A', 'B', 'C', 'D', 'E']:
-                            if hc_key in pro_hcs:
-                                hc = pro_hcs[hc_key]
-                                hc_name = hc.get('Name', f"Cue {hc_key}")
-                                hc_time = hc.get('Start', 0.0)
-                                # 【V9.2.1】显示确切的 Rekordbox 段落名称 (PSSI 驱动)
-                                phrase_label = hc.get('PhraseLabel', "[Grid Sync]")
-                                f.write(f"      - {hc_name}: {format_time(hc_time, bpm)} {phrase_label}\n")
-                    
-                    # 显示混音点（根据下一首歌的混入点来判断）
-                    # idx是1-based（从1开始），set_tracks是0-based（从0开始）
-                    # 当前歌曲：set_tracks[idx - 1]
-                    # 下一首歌曲：set_tracks[idx]（如果存在）
-                    # 上一首歌曲：set_tracks[idx - 2]（如果idx > 1）
-                    
-                    # 显示当前歌曲的混入点（显示上一首的混出点）
-                    if idx == 1:
-                        # 第一首歌曲
-                        if mix_in:
-                            f.write(f"    🎯 最佳接歌点(Mix-In): {format_time(mix_in, bpm)}\n")
+                        # 格式化时长显示（超过60秒显示为X分X秒）
+                        if duration >= 60:
+                            minutes = int(duration // 60)
+                            seconds = int(duration % 60)
+                            duration_str = f"{duration:.0f}秒 ({minutes}分{seconds}秒)"
                         else:
-                            f.write(f"    🎯 最佳接歌点(Mix-In): 未检测\n")
-                    else:
-                        # 不是第一首，显示上一首的混出点
-                        prev_track = set_tracks[idx - 2]  # 上一首歌曲（idx是1-based，所以idx-2是上一首的索引）
-                        prev_mix_out = prev_track.get('mix_out_point')
-                        prev_bpm = prev_track.get('bpm', 0)
-                        if mix_in:
-                            if prev_mix_out:
-                                f.write(f"    🎯 最佳接歌点(Mix-In): {format_time(mix_in, bpm)} | 上一首出歌点: {format_time(prev_mix_out, prev_bpm)}\n")
-                            else:
-                                f.write(f"    🎯 最佳接歌点(Mix-In): {format_time(mix_in, bpm)} | 上一首出歌点: 未检测\n")
-                        else:
-                            if prev_mix_out:
-                                f.write(f"    🎯 最佳接歌点(Mix-In): 未检测 | 建议在上一首出歌点 {format_time(prev_mix_out, prev_bpm)} 后开始混入\n")
-                    
-                    # 显示当前歌曲的混出点（应该根据下一首的混入点来判断）
-                    if idx < len(set_tracks):
-                        next_track = set_tracks[idx]  # 下一首歌曲
-                        next_mix_in = next_track.get('mix_in_point')
-                        next_bpm = next_track.get('bpm', 0)
+                            duration_str = f"{duration:.0f}秒"
                         
-                        if mix_out:
-                            # 如果下一首有混入点，显示当前歌曲的混出点和下一首的混入点
-                            if next_mix_in:
-                                f.write(f"    🎯 最佳出歌点(Mix-Out): {format_time(mix_out, bpm)} | 下一首接歌点: {format_time(next_mix_in, next_bpm)}\n")
-                            else:
-                                f.write(f"    🎯 最佳出歌点(Mix-Out): {format_time(mix_out, bpm)} | 下一首接歌点: 未检测\n")
-                        else:
-                            if next_mix_in:
-                                f.write(f"    🎯 最佳出歌点(Mix-Out): 未检测 | 建议在下一首接歌点前 {format_time(next_mix_in, next_bpm)} 开始淡出\n")
-                            else:
-                                f.write(f"    🎯 最佳出歌点(Mix-Out): 未检测（建议手动选择）\n")
+                        # 格式化输出（检查是否为桥接曲）
+                        is_bridge = track.get('is_bridge', False)
+                        bridge_reason = track.get('bridge_reason', '')
                         
-                        # 在歌曲之间显示混音建议（只有需要提示时才显示）
-                        if idx < len(set_tracks):
-                            # 判断是否需要显示详细建议
-                            need_advice = False
-                            curr_bpm = track.get('bpm', 0)
-                            next_bpm = next_track.get('bpm', 0)
-                            curr_key = track.get('key', '')
-                            next_key = next_track.get('key', '')
+                        # 【P0优化】使用优化的调性显示（Camelot + Open Key）
+                        try:
+                            from export_set_to_csv import format_key_display
+                            key_display = format_key_display(key)
+                        except:
+                            key_display = key
+                        
+                        # 获取 V35 智能标签
+                        vibe_summary = track.get('vibe_summary', "Standard")
+                        # [HOTFIX] Ensure string type for Vibe Summary
+                        if not isinstance(vibe_summary, str): vibe_summary = str(vibe_summary)
+                        
+                        is_v35 = "V35" in vibe_summary or track.get('is_v35', False) # 标记是否为 SOTA 2026 数据
+                        ai_tag = " ✅[AI_FULL_V35_SOTA]" if is_v35 else " ✅[AI_BASIC]"
+                        
+                        if is_bridge:
+                            f.write(f"{idx:2d}. [桥接曲] {artist} - {title}{ai_tag}\n")
+                            f.write(f"    BPM: {bpm:.1f} | 调性: {key_display} | 能量: {energy:.0f}/100 | 时长: {duration_str}\n")
+                            if is_v35:
+                                f.write(f"    🧠 智能分析 (V35): {vibe_summary}\n")
+                            f.write(f"    [自动插入原因] {bridge_reason}\n")
+                        else:
+                            f.write(f"{idx:2d}. {artist} - {title}{ai_tag}\n")
+                            f.write(f"    BPM: {bpm:.1f} | 调性: {key_display} | 能量: {energy:.0f}/100 | 时长: {duration_str}\n")
+                            if is_v35:
+                                f.write(f"    🧠 智能分析 (V35): {vibe_summary}\n")
+                        # 显示歌曲结构信息（简化版：只显示关键段落）
+                        structure = track.get('structure')
+                        if structure:
+                            # 只显示Intro和Outro的时间点（DJ最关心的混音区域）
+                            key_points = []
+                            if structure.get('intro'):
+                                start, end = structure['intro']
+                                key_points.append(f"Intro结束: {format_time(end, bpm)}")
+                            if structure.get('outro'):
+                                start, end = structure['outro']
+                                key_points.append(f"Outro开始: {format_time(start, bpm)}")
                             
-                            bpm_diff = abs(curr_bpm - next_bpm) if curr_bpm and next_bpm else 999
-                            key_score = get_key_compatibility_flexible(curr_key, next_key) if curr_key and next_key and curr_key != "未知" and next_key != "未知" else 0
-                            
-                            # 如果BPM跨度>8或调性兼容性<60，需要显示建议
-                            if bpm_diff > 8 or key_score < 60:
-                                need_advice = True
-                            
-                            # 检查人声/鼓点匹配情况
-                            curr_vocals = track.get('vocals')
-                            next_vocals = next_track.get('vocals')
-                            if curr_vocals and next_vocals and mix_out and next_mix_in:
-                                # 检查是否是人声混人声（不推荐）
-                                current_out_vocals = False
-                                for seg_start, seg_end in curr_vocals.get('segments', []):
-                                    if seg_start <= mix_out <= seg_end:
-                                        current_out_vocals = True
-                                        break
-                                
-                                next_in_vocals = False
-                                for seg_start, seg_end in next_vocals.get('segments', []):
-                                    if seg_start <= next_mix_in <= seg_end:
-                                        next_in_vocals = True
-                                        break
-                                
-                                # 如果是人声混人声，需要显示建议
-                                if current_out_vocals and next_in_vocals:
-                                    need_advice = True
-                            
-                            # 【V6.0 Audit】始终显示建议，以便展示审计日志
-                            if True: # 原为 need_advice
-                                f.write(f"\n    {'─'*70}\n")
-                                f.write(f"    📝 混音建议：{title} → {next_track.get('title', 'Unknown')[:30]}\n")
-                                f.write(f"    {'─'*70}\n")
-                                
-                                transition_advice = generate_transition_advice(track, next_track, idx)
-                                if transition_advice:
-                                    for line in transition_advice:
-                                        f.write(line + "\n")
+                            if key_points:
+                                f.write(f"    结构: {' | '.join(key_points)}\n")
+                        
+                        # 【V9.2 专家级透明度】显示 Pro Hotcues (Rekordbox 标准)
+                        pro_hcs = track.get('pro_hotcues', {})
+                        if pro_hcs:
+                            f.write(f"    ⭐ Pro Hotcues (Rekordbox 协同):\n")
+                            for hc_key in ['A', 'B', 'C', 'D', 'E']:
+                                if hc_key in pro_hcs:
+                                    hc = pro_hcs[hc_key]
+                                    hc_name = hc.get('Name', f"Cue {hc_key}")
+                                    hc_time = hc.get('Start', 0.0)
+                                    # 【V9.2.1】显示确切的 Rekordbox 段落名称 (PSSI 驱动)
+                                    phrase_label = hc.get('PhraseLabel', "[Grid Sync]")
+                                    f.write(f"      - {hc_name}: {format_time(hc_time, bpm)} {phrase_label}\n")
+                        
+                        # 显示混音点
+                        if idx == 1:
+                            if mix_in:
+                                f.write(f"    🎯 最佳接歌点(Mix-In): {format_time(mix_in, bpm)}\n")
+                            else:
+                                f.write(f"    🎯 最佳接歌点(Mix-In): 未检测\n")
+                        else:
+                            prev_track = set_tracks[idx - 2]
+                            prev_mix_out = prev_track.get('mix_out_point')
+                            prev_bpm = prev_track.get('bpm', 0)
+                            if mix_in:
+                                if prev_mix_out:
+                                    f.write(f"    🎯 最佳接歌点(Mix-In): {format_time(mix_in, bpm)} | 上一首出歌点: {format_time(prev_mix_out, prev_bpm)}\n")
                                 else:
-                                    f.write("    ✅ 过渡很和谐，标准混音即可\n")
-                                f.write("\n")
+                                    f.write(f"    🎯 最佳接歌点(Mix-In): {format_time(mix_in, bpm)} | 上一首出歌点: 未检测\n")
                             else:
-                                # 好接的过渡，只显示一个简单的确认
-                                f.write("    ✅ 过渡顺畅，标准混音即可\n\n")
-                    else:
-                        # 最后一首歌曲，只显示混入点和混出点
-                        if mix_in and mix_out:
-                            f.write(f"    🎯 最佳接歌点(Mix-In): {format_time(mix_in, bpm)} | 最佳出歌点(Mix-Out): {format_time(mix_out, bpm)}\n")
-                        elif mix_in:
-                            f.write(f"    🎯 最佳接歌点(Mix-In): {format_time(mix_in, bpm)} | 最佳出歌点(Mix-Out): 未检测\n")
-                        elif mix_out:
-                            f.write(f"    🎯 最佳接歌点(Mix-In): 未检测 | 最佳出歌点(Mix-Out): {format_time(mix_out, bpm)}\n")
-                        else:
-                            f.write(f"    🎯 混音点: 未检测（建议手动选择）\n")
+                                if prev_mix_out:
+                                    f.write(f"    🎯 最佳接歌点(Mix-In): 未检测 | 建议在上一首出歌点 {format_time(prev_mix_out, prev_bpm)} 后开始混入\n")
+                        
+                        if idx < len(set_tracks):
+                            next_track = set_tracks[idx]
+                            next_mix_in = next_track.get('mix_in_point')
+                            next_bpm = next_track.get('bpm', 0)
+                            
+                            if mix_out:
+                                if next_mix_in:
+                                    f.write(f"    🎯 最佳出歌点(Mix-Out): {format_time(mix_out, bpm)} | 下一首接歌点: {format_time(next_mix_in, next_bpm)}\n")
+                                else:
+                                    f.write(f"    🎯 最佳出歌点(Mix-Out): {format_time(mix_out, bpm)} | 下一首接歌点: 未检测\n")
+                            else:
+                                if next_mix_in:
+                                    f.write(f"    🎯 最佳出歌点(Mix-Out): 未检测 | 建议在下一首接歌点前 {format_time(next_mix_in, next_bpm)} 开始淡出\n")
+                                else:
+                                    f.write(f"    🎯 最佳出歌点(Mix-Out): 未检测（建议手动选择）\n")
+                            
+                            # 在歌曲之间显示混音建议
+                            if idx < len(set_tracks):
+                                try:
+                                    need_advice = False
+                                    curr_bpm = track.get('bpm', 0)
+                                    next_bpm = next_track.get('bpm', 0)
+                                    curr_key = track.get('key', '')
+                                    next_key = next_track.get('key', '')
+                                    
+                                    bpm_diff = abs(curr_bpm - next_bpm) if curr_bpm and next_bpm else 999
+                                    key_score = get_key_compatibility_flexible(curr_key, next_key) if curr_key and next_key and curr_key != "未知" and next_key != "未知" else 0
+                                    
+                                    if bpm_diff > 8 or key_score < 60:
+                                        need_advice = True
+                                    
+                                    # 检查人声冲突
+                                    curr_vocals = track.get('vocals')
+                                    next_vocals = next_track.get('vocals')
+                                    if curr_vocals and next_vocals and mix_out and next_mix_in:
+                                        current_out_vocals = False
+                                        for seg_start, seg_end in curr_vocals.get('segments', []):
+                                            if seg_start <= mix_out <= seg_end:
+                                                current_out_vocals = True
+                                                break
+                                        
+                                        next_in_vocals = False
+                                        for seg_start, seg_end in next_vocals.get('segments', []):
+                                            if seg_start <= next_mix_in <= seg_end:
+                                                next_in_vocals = True
+                                                break
+                                        
+                                        if current_out_vocals and next_in_vocals:
+                                            need_advice = True
+                                    
+                                    # Always show advice
+                                    if True:
+                                        f.write(f"\n    {'─'*70}\n")
+                                        f.write(f"    📝 混音建议：{title} → {next_track.get('title', 'Unknown')[:30]}\n")
+                                        f.write(f"    {'─'*70}\n")
+                                        
+                                        try:
+                                            transition_advice = generate_transition_advice(track, next_track, idx)
+                                            if transition_advice:
+                                                for line in transition_advice:
+                                                    f.write(line + "\n")
+                                            else:
+                                                f.write("    ✅ 过渡很和谐，标准混音即可\n")
+                                        except Exception as ex:
+                                            f.write(f"    [Error] Advice generation failed: {ex}\n")
+                                        f.write("\n")
+                                except Exception as outer_err:
+                                    f.write(f"    [Error] Processing mixing advice failed: {outer_err}\n")
+
+                    except Exception as loop_error:
+                         print(f"Skipping track {idx} due to critical error: {loop_error}")
+                         f.write(f"\n[CRITICAL ERROR] Track {idx} skipped: {loop_error}\n")
                 
-                # 如果不是最后一个set，添加过渡说明
-                if set_idx < len(sets):
+                # [过渡说明] Set 结束时的标记
+                if idx == len(set_tracks) and set_idx < len(sets):
                     f.write(f"\n    [过渡] → Set {set_idx + 1} 开始\n")
             
             # ========== [Phase 9] 专业大考报告 Header ==========
