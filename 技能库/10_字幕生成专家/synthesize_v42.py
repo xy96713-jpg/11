@@ -38,95 +38,80 @@ def synthesize_srt():
     tg_words = parse_textgrid(r"d:\anti\技能库\10_字幕生成专家\mfa_output\vocal_track.TextGrid")
     orig_lines = get_lyrics()
     
-    # 1. Prepare flat word list from lyrics
     flat_lyric_words = []
     for line_idx, line in enumerate(orig_lines):
         for w in line.split():
             cw = re.sub(r'[^a-z]', '', w.lower())
-            flat_lyric_words.append({
-                'orig': w,
-                'clean': cw,
-                'line_idx': line_idx,
-                'start': None,
-                'end': None
-            })
+            flat_lyric_words.append({'orig': w, 'clean': cw, 'line_idx': line_idx, 'start': None, 'end': None})
 
-    # 2. Sequential Alignment (The human way: matching one by one, allowing skips)
+    # Strict Anchor Selection
     tg_ptr = 0
-    for lw in flat_lyric_words:
-        if not lw['clean']: continue # Skip Korean/Empty
-        
-        # Look for this word in TG within a reasonable lookahead (e.g. 15 words)
-        best_match_idx = -1
-        for i in range(tg_ptr, min(tg_ptr + 15, len(tg_words))):
+    for lf in flat_lyric_words:
+        if not lf['clean']: continue
+        for i in range(tg_ptr, min(tg_ptr + 80, len(tg_words))):
             tw = tg_words[i]
-            if lw['clean'] == tw['text'] or (len(lw['clean']) > 3 and (lw['clean'] in tw['text'] or tw['text'] in lw['clean'])):
-                best_match_idx = i
+            if lf['clean'] == tw['text'] or (len(lf['clean']) > 3 and (lf['clean'] in tw['text'] or tw['text'] in lf['clean'])):
+                lf['start'] = tw['start']
+                lf['end'] = tw['end']
+                tg_ptr = i + 1
                 break
+
+    srt_output = []
+    for i, line_text in enumerate(orig_lines):
+        line_words = [w for w in flat_lyric_words if w['line_idx'] == i]
+        known = [w for w in line_words if w['start'] is not None]
         
-        if best_match_idx != -1:
-            lw['start'] = tg_words[best_match_idx]['start']
-            lw['end'] = tg_words[best_match_idx]['end']
-            tg_ptr = best_match_idx + 1 # Strictly move forward
+        if known:
+            # STRICT PHRASING: Lock to exact start and exact end
+            l_start = known[0]['start']
+            l_end = known[-1]['end']
             
-    # 3. Propagate timing to lines
-    final_lines = []
-    for i, line in enumerate(orig_lines):
-        words = [w for w in flat_lyric_words if w['line_idx'] == i]
-        known_words = [w for w in words if w['start'] is not None]
-        
-        if known_words:
-            # Respect musical flow: Start at first word, end at last word
-            start = known_words[0]['start']
-            end = known_words[-1]['end']
-            # Minimal gap check
-            if end - start < 1.0: end = start + 1.2 # Human readability
+            # If the last word is very short (<0.1s), slightly expand for readability
+            if l_end - l_start < 0.6:
+                l_end = l_start + 0.8
         else:
-            # Interpolation logic for missing/Korean lines
-            # Anchors from previous and next available lines
-            prev_end = final_lines[-1]['end'] if final_lines else 0
-            
+            # Interpolation for non-detected segments
+            prev_end = srt_output[-1]['end'] if srt_output else 0.0
             next_start = None
             for j in range(i + 1, len(orig_lines)):
-                future_words = [w for w in flat_lyric_words if w['line_idx'] == j and w['start'] is not None]
-                if future_words:
-                    next_start = future_words[0]['start']
+                future_known = [w for w in flat_lyric_words if w['line_idx'] == j and w['start'] is not None]
+                if future_known:
+                    next_start = future_known[0]['start']
                     break
             
             if next_start:
-                # Interpolate in the gap
                 gap = next_start - prev_end
-                # How many non-anchored lines?
-                unseen_count = 0
+                unknown_count = 0
                 for k in range(i, len(orig_lines)):
-                    if any(w['start'] for w in [x for x in flat_lyric_words if x['line_idx'] == k]): break
-                    unseen_count += 1
-                
-                step = gap / (unseen_count + 1)
-                start = prev_end + step * 0.1
-                end = prev_end + step * 0.9
+                    if not any(w['start'] for w in [x for x in flat_lyric_words if x['line_idx'] == k]): unknown_count += 1
+                    else: break
+                step = gap / (unknown_count + 1)
+                l_start = prev_end + (step * 0.1)
+                l_end = prev_end + (step * 0.9)
             else:
-                # Trailing end
-                start = prev_end + 0.5
-                end = start + 2.0
+                l_start = prev_end + 0.3
+                l_end = l_start + 2.0
+
+        # Collision Guard: Ensure min 0.05s gap between subtitles
+        if srt_output and l_start < srt_output[-1]['end'] + 0.03:
+            l_start = srt_output[-1]['end'] + 0.05
         
-        # FINAL SANITY GUARD: Duration and Overlap
-        if final_lines:
-            # Ensure no overlap
-            if start < final_lines[-1]['end'] + 0.05:
-                start = final_lines[-1]['end'] + 0.1
-            # Ensure no time travel
-            if end <= start:
-                end = start + 1.2
-                
-        final_lines.append({'start': start, 'end': end, 'text': line})
+        if l_end <= l_start: l_end = l_start + 0.6
 
-    # Export
-    with open(r"C:\Users\Administrator\Desktop\Timeline 1_V42_MFA_Professional.srt", "w", encoding='utf-8') as f:
-        for idx, ln in enumerate(final_lines):
-            f.write(f"{idx+1}\n{format_time(ln['start'])} --> {format_time(ln['end'])}\n{ln['text']}\n\n")
+        srt_output.append({'start': l_start, 'end': l_end, 'text': line_text})
 
-    print("Synthesized V42.3 with Sequential Sequential Alignment.")
+    # Final Monotonicity & Overlap Polish
+    for i in range(len(srt_output) - 1):
+        if srt_output[i]['end'] > srt_output[i+1]['start']:
+            srt_output[i]['end'] = srt_output[i+1]['start'] - 0.02
+
+    # Save to Desktop
+    desktop_path = r"C:\Users\Administrator\Desktop\Timeline 1_V42_MFA_Professional.srt"
+    with open(desktop_path, "w", encoding="utf-8") as f:
+        for idx, s in enumerate(srt_output):
+            f.write(f"{idx+1}\n{format_time(s['start'])} --> {format_time(s['end'])}\n{s['text']}\n\n")
+
+    print(f"Delivered V42.6 Strict Phrasing SRT to Desktop.")
 
 if __name__ == "__main__":
     synthesize_srt()

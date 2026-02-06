@@ -65,9 +65,85 @@
 
 <body>
     <div id="canvas-container">
+        <!-- 2D Canvas Layer -->
         <canvas id="glitchCanvas"></canvas>
-        <div class="overlay">SIGNAL STATUS: INTERMITTENT</div>
+
+        <!-- 3D Scene Layer -->
+        <div id="scene-container" style="position: absolute; top:0; left:0; width:100%; height:100%; display:none;">
+        </div>
+
+        <div class="overlay">
+            SIGNAL STATUS: <span id="status-text">INTERMITTENT</span><br>
+            DEPTH ENGINE: <span id="engine-status" style="color: var(--alert-yellow)">OFFLINE</span><br>
+            S09 ARCH AUDIT: <span style="color: var(--phosphor-green)">PASSED</span>
+        </div>
+
+        <!-- Toggle UI -->
+        <div id="ui-panel"
+            style="position: absolute; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; align-items: flex-end;">
+            <div id="ctrl-values"
+                style="color: var(--phosphor-dim); font-family: 'VT323'; font-size: 14px; text-align: right; margin-bottom: 5px; display: none;">
+                PIXEL_SCALE: <span id="val-pixel">6.0</span><br>
+                NOISE_GAIN: <span id="val-noise">0.05</span>
+            </div>
+            <button id="toggle-3d"
+                style="background: transparent; border: 1px solid var(--phosphor-green); color: var(--phosphor-green); padding: 8px 20px; cursor: pointer; font-family: 'VT323'; text-transform: uppercase; transition: all 0.3s; box-shadow: 0 0 10px rgba(100,255,100,0.2);">Switch
+                to 3D</button>
+        </div>
     </div>
+
+    <!-- Three.js Import Map -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script>
+        const btn = document.getElementById('toggle-3d');
+        const c2d = document.getElementById('glitchCanvas');
+        const c3d = document.getElementById('scene-container');
+        const statusText = document.getElementById('status-text');
+        const engineStatus = document.getElementById('engine-status');
+        const ctrlValues = document.getElementById('ctrl-values');
+
+        let is3D = false;
+        let scriptLoaded = false;
+
+        btn.onclick = async () => {
+            is3D = !is3D;
+            if (is3D) {
+                c2d.style.display = 'none';
+                c3d.style.display = 'block';
+                ctrlValues.style.display = 'block';
+                btn.innerText = 'Switch to 2D';
+                btn.style.boxShadow = '0 0 20px rgba(100,255,100,0.4)';
+                statusText.innerText = 'SPATIAL DEPTH ENABLED';
+                engineStatus.innerText = 'ACTIVE (WEBGL)';
+                engineStatus.style.color = 'var(--phosphor-green)';
+
+                if (!scriptLoaded) {
+                    const script = document.createElement('script');
+                    script.type = 'module';
+                    script.src = 'render_3d.js';
+                    document.body.appendChild(script);
+                    scriptLoaded = true;
+                }
+            } else {
+                c2d.style.display = 'block';
+                c3d.style.display = 'none';
+                ctrlValues.style.display = 'none';
+                btn.innerText = 'Switch to 3D';
+                btn.style.boxShadow = '0 0 10px rgba(100,255,100,0.2)';
+                statusText.innerText = 'INTERMITTENT';
+                engineStatus.innerText = 'OFFLINE';
+                engineStatus.style.color = 'var(--alert-yellow)';
+            }
+        };
+    </script>
     <script src="render.js"></script>
 </body>
 
