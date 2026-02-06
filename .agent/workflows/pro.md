@@ -8,7 +8,7 @@ description: 启动“最强大脑 (PM Edition)”以产品经理视角统筹多
 
 ## 1. 宪法级需求解构 (Governance & Spec-Driven)
 - **[CRITICAL] 时间锚点对齐**：必须确认当前年份（2026）。搜寻时强制带 `latest` 或 `2026` 标签。
-- **引用核心协议**：读取 `C:/Users/Administrator/.gemini/antigravity/brain/2b0fd617-36e4-4a4f-a4dc-bb4e6ac2bad2/GOD_PM_CORE_2026.md`。
+- **引用核心协议**：读取 `d:/anti/技能库/05_极简审美与动画/core/pm_governance/GOD_PM_CORE_2026.md`（原 Skill 00）。
 - **递归反映规划 (Reflection)**：在生成 `implementation_plan.md` 前，模拟 2 个以上专家视角进行自我批判。
 - **置信度自审**：评分必须 > 9.5 才可进入下一步。
 
