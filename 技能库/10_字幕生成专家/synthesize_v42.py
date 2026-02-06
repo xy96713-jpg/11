@@ -6,7 +6,6 @@ from pathlib import Path
 def parse_textgrid(path):
     with open(path, 'r', encoding='utf-8') as f:
         lines = f.readlines()
-    
     words = []
     i = 0
     while i < len(lines):
@@ -15,7 +14,8 @@ def parse_textgrid(path):
             xmin = float(lines[i+1].split('=')[1].strip())
             xmax = float(lines[i+2].split('=')[1].strip())
             text = lines[i+3].split('=')[1].strip().strip('"').lower()
-            if text:
+            text = re.sub(r'[^a-z]', '', text)
+            if text and text != 'spn':
                 words.append({'start': xmin, 'end': xmax, 'text': text})
             i += 4
         else:
@@ -26,117 +26,107 @@ def get_lyrics():
     lyric_file = r"d:\anti\技能库\10_字幕生成专家\lyrics_context.json"
     with open(lyric_file, 'r', encoding='utf-8') as f:
         data = json.load(f)
-    
-    all_lines = []
-    for part in ["XG_HYPNOTIZE_PART1", "NewJeans_Super_Shy", "XG_HYPNOTIZE_REPRISE"]:
-        all_lines.extend(data[part])
-    return all_lines
+    return data["XG_HYPNOTIZE_PART1"] + data["NewJeans_Super_Shy"] + data["XG_HYPNOTIZE_REPRISE"]
 
 def format_time(seconds):
-    hours = int(seconds // 3600)
-    minutes = int((seconds % 3600) // 60)
-    secs = int(seconds % 60)
-    millis = int((seconds * 1000) % 1000)
-    return f"{hours:02}:{minutes:02}:{secs:02},{millis:03}"
+    if seconds < 0: seconds = 0
+    h, m, s = int(seconds // 3600), int((seconds % 3600) // 60), int(seconds % 60)
+    ms = int((seconds * 1000) % 1000)
+    return f"{h:02}:{m:02}:{s:02},{ms:03}"
 
 def synthesize_srt():
     tg_words = parse_textgrid(r"d:\anti\技能库\10_字幕生成专家\mfa_output\vocal_track.TextGrid")
     orig_lines = get_lyrics()
     
-    srt_entries = []
-    word_idx = 0
-    
+    # 1. Prepare flat word list from lyrics
+    flat_lyric_words = []
     for line_idx, line in enumerate(orig_lines):
-        # Extract individual words (English and Korean)
-        raw_words = line.split()
-        line_start = None
-        line_end = None
-        
-        assigned_words = []
-        
-        for rw in raw_words:
-            clean_rw = re.sub(r'[^a-zA-Z\']', '', rw).lower()
-            if clean_rw and word_idx < len(tg_words):
-                # Try to find a match or just take the next one if it's English
-                # Note: MFA might have split "runnin'from" into one word, we need to be careful
-                # But for simplicity, we consume tg_words sequentially.
-                
-                # Check if current tg_word roughly matches clean_rw
-                # (Due to cleaning some symbols might differ)
-                tg_w = tg_words[word_idx]
-                
-                # Assign timestamp
-                assigned_words.append({
-                    'text': rw,
-                    'start': tg_w['start'],
-                    'end': tg_w['end']
-                })
-                
-                if line_start is None: line_start = tg_w['start']
-                line_end = tg_w['end']
-                word_idx += 1
-            else:
-                # Korean or non-English word
-                # We'll interpolate its time later or use previous/next
-                assigned_words.append({
-                    'text': rw,
-                    'start': None,
-                    'end': None
-                })
-        
-        # Interpolate missing timestamps (Korean/CJK)
-        # Simply spread them between the nearest English timestamps
-        for i, aw in enumerate(assigned_words):
-            if aw['start'] is None:
-                # Special case: First word is Korean
-                if i == 0:
-                    # Look ahead for first timestamp
-                    for j in range(len(assigned_words)):
-                        if assigned_words[j]['start'] is not None:
-                            aw['start'] = max(0, assigned_words[j]['start'] - 0.5)
-                            aw['end'] = assigned_words[j]['start']
-                            break
-                    if aw['start'] is None: # Whole line is Korean (shouldn't happen with MFA input)
-                        aw['start'] = line_start if line_start else 0
-                        aw['end'] = line_end if line_end else 0
-                else:
-                    prev_end = assigned_words[i-1]['end']
-                    # Look ahead for next timestamp
-                    next_start = None
-                    for j in range(i+1, len(assigned_words)):
-                        if assigned_words[j]['start'] is not None:
-                            next_start = assigned_words[j]['start']
-                            break
-                    
-                    if next_start:
-                        aw['start'] = prev_end
-                        aw['end'] = next_start
-                    else:
-                        aw['start'] = prev_end
-                        aw['end'] = prev_end + 0.3 # Default duration for Korean syllable/word
-        
-        if assigned_words:
-            actual_start = min(w['start'] for w in assigned_words if w['start'] is not None)
-            actual_end = max(w['end'] for w in assigned_words if w['end'] is not None)
-            
-            # Compensation for singing trailing
-            actual_end += 0.2
-            
-            srt_entries.append({
-                'index': len(srt_entries) + 1,
-                'start': actual_start,
-                'end': actual_end,
-                'text': line
+        for w in line.split():
+            cw = re.sub(r'[^a-z]', '', w.lower())
+            flat_lyric_words.append({
+                'orig': w,
+                'clean': cw,
+                'line_idx': line_idx,
+                'start': None,
+                'end': None
             })
 
-    # Write SRT
-    with open(r"d:\anti\技能库\10_字幕生成专家\Timeline 1_V42_MFA_Professional.srt", "w", encoding='utf-8') as f:
-        for entry in srt_entries:
-            f.write(f"{entry['index']}\n")
-            f.write(f"{format_time(entry['start'])} --> {format_time(entry['end'])}\n")
-            f.write(f"{entry['text']}\n\n")
+    # 2. Sequential Alignment (The human way: matching one by one, allowing skips)
+    tg_ptr = 0
+    for lw in flat_lyric_words:
+        if not lw['clean']: continue # Skip Korean/Empty
+        
+        # Look for this word in TG within a reasonable lookahead (e.g. 15 words)
+        best_match_idx = -1
+        for i in range(tg_ptr, min(tg_ptr + 15, len(tg_words))):
+            tw = tg_words[i]
+            if lw['clean'] == tw['text'] or (len(lw['clean']) > 3 and (lw['clean'] in tw['text'] or tw['text'] in lw['clean'])):
+                best_match_idx = i
+                break
+        
+        if best_match_idx != -1:
+            lw['start'] = tg_words[best_match_idx]['start']
+            lw['end'] = tg_words[best_match_idx]['end']
+            tg_ptr = best_match_idx + 1 # Strictly move forward
+            
+    # 3. Propagate timing to lines
+    final_lines = []
+    for i, line in enumerate(orig_lines):
+        words = [w for w in flat_lyric_words if w['line_idx'] == i]
+        known_words = [w for w in words if w['start'] is not None]
+        
+        if known_words:
+            # Respect musical flow: Start at first word, end at last word
+            start = known_words[0]['start']
+            end = known_words[-1]['end']
+            # Minimal gap check
+            if end - start < 1.0: end = start + 1.2 # Human readability
+        else:
+            # Interpolation logic for missing/Korean lines
+            # Anchors from previous and next available lines
+            prev_end = final_lines[-1]['end'] if final_lines else 0
+            
+            next_start = None
+            for j in range(i + 1, len(orig_lines)):
+                future_words = [w for w in flat_lyric_words if w['line_idx'] == j and w['start'] is not None]
+                if future_words:
+                    next_start = future_words[0]['start']
+                    break
+            
+            if next_start:
+                # Interpolate in the gap
+                gap = next_start - prev_end
+                # How many non-anchored lines?
+                unseen_count = 0
+                for k in range(i, len(orig_lines)):
+                    if any(w['start'] for w in [x for x in flat_lyric_words if x['line_idx'] == k]): break
+                    unseen_count += 1
+                
+                step = gap / (unseen_count + 1)
+                start = prev_end + step * 0.1
+                end = prev_end + step * 0.9
+            else:
+                # Trailing end
+                start = prev_end + 0.5
+                end = start + 2.0
+        
+        # FINAL SANITY GUARD: Duration and Overlap
+        if final_lines:
+            # Ensure no overlap
+            if start < final_lines[-1]['end'] + 0.05:
+                start = final_lines[-1]['end'] + 0.1
+            # Ensure no time travel
+            if end <= start:
+                end = start + 1.2
+                
+        final_lines.append({'start': start, 'end': end, 'text': line})
 
-    print(f"Generated Professional SRT: Timeline 1_V42_MFA_Professional.srt")
+    # Export
+    with open(r"C:\Users\Administrator\Desktop\Timeline 1_V42_MFA_Professional.srt", "w", encoding='utf-8') as f:
+        for idx, ln in enumerate(final_lines):
+            f.write(f"{idx+1}\n{format_time(ln['start'])} --> {format_time(ln['end'])}\n{ln['text']}\n\n")
+
+    print("Synthesized V42.3 with Sequential Sequential Alignment.")
 
 if __name__ == "__main__":
     synthesize_srt()
